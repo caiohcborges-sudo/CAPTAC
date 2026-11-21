@@ -199,7 +199,7 @@ class MainActivity : AppCompatActivity() {
             (if (n) "✅" else "❌") + " Acesso às notificações\n" +
             (if (Prefs.enabled(this)) "✅" else "❌") + " Receber sugestões ligado\n" +
             (if (Prefs.token(this).isNotBlank()) "✅" else "❌") + " Token preenchido\n" +
-            (if (ReplyService.isEnabled(this)) "✅" else "➖") + " Envio pela tela (para quando não há resposta rápida)\n" +
+            (if (ReplyService.isEnabled(this)) "✅" else "❌") + " Envio pela tela (obrigatório: é o jeito padrão de responder)\n" +
             "API: ${Hub.lastApi}\n" +
             "Última notificação vista: $ago\n" +
             "Modo: " + (if (Prefs.auto(this)) "AUTOMÁTICO" else "semi-automático")

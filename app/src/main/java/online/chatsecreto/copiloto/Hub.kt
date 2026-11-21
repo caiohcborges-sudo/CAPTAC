@@ -112,7 +112,9 @@ object Hub {
     /** Envio do modo automático: tenta o RemoteInput; devolve false se não houver (cai na fila manual). */
     fun autoSend(c: Context, id: Long): Boolean {
         val it = items.firstOrNull { x -> x.id == id } ?: return false
-        val p = pending[id] ?: return screenSend(c, id)
+        // Padrão: responder pela tela do chat. Notificação só como reserva.
+        if (screenSend(c, id)) return true
+        val p = pending[id] ?: return false
         return try {
             val intent = Intent()
             val b = Bundle()
@@ -134,6 +136,11 @@ object Hub {
         val wasEdited = !edited.isNullOrBlank() && edited.trim() != it.reply
         if (!edited.isNullOrBlank()) it.reply = edited.trim()
         feedback(c, if (wasEdited) "edited" else "sent", it.reply)
+        // Padrão: responder pela tela do chat. Notificação só como reserva.
+        if (screenSend(c, id)) {
+            pending.remove(id)
+            return
+        }
         val p = pending.remove(id)
         var sent = false
         if (p != null) {
@@ -149,9 +156,6 @@ object Hub {
         }
         if (sent) {
             it.status = "enviada"
-        } else if (p == null && screenSend(c, id)) {
-            // chat aberto; o serviço de acessibilidade cola e envia
-            return
         } else {
             val cm = c.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             cm.setPrimaryClip(ClipData.newPlainText("resposta", it.reply))

@@ -61,7 +61,7 @@
             android:textColor="#E6EDF3" />
         <Button android:id="@+id/btAcc" android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Ativar envio pela tela (acessibilidade) — só para responder" />
+            android:text="1) ATIVAR ENVIO PELA TELA (acessibilidade) — padrão para responder" />
         <Button android:id="@+id/btNotif" android:layout_width="match_parent"
             android:layout_height="wrap_content" android:text="Conceder acesso às notificações" />
         <Button android:id="@+id/btOverlay" android:layout_width="match_parent"
