@@ -17,6 +17,8 @@
         android:layout_marginTop="8dp" android:orientation="horizontal">
         <Button android:id="@+id/ovOk" android:layout_width="0dp" android:layout_height="wrap_content"
             android:layout_weight="1.4" android:textSize="11sp" android:backgroundTint="#00C875" android:text="APROVAR E ENVIAR" />
+        <Button android:id="@+id/ovRegen" android:layout_width="0dp" android:layout_height="wrap_content"
+            android:layout_weight="0.6" android:textSize="14sp" android:backgroundTint="#30363D" android:text="↻" />
         <Button android:id="@+id/ovEdit" android:layout_width="0dp" android:layout_height="wrap_content"
             android:layout_weight="1" android:textSize="11sp" android:backgroundTint="#30363D" android:text="EDITAR" />
         <Button android:id="@+id/ovNo" android:layout_width="0dp" android:layout_height="wrap_content"

@@ -103,6 +103,16 @@ class CopilotoListener : NotificationListenerService() {
             removeOverlay()
         }
         v.findViewById<Button>(R.id.ovNo).setOnClickListener { Hub.discard(this, item.id); removeOverlay() }
+        v.findViewById<Button>(R.id.ovRegen).setOnClickListener {
+            Thread {
+                val r = Hub.fetch(this, item.sender, item.message, true) ?: return@Thread
+                item.reply = r
+                main.post {
+                    tvReply.text = r
+                    if (editing) et.setText(r)
+                }
+            }.start()
+        }
         v.findViewById<Button>(R.id.ovEdit).setOnClickListener {
             editing = true
             tvReply.visibility = View.GONE

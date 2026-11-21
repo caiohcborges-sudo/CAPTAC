@@ -61,7 +61,9 @@ object Hub {
     /** Só é chamado após o toque do usuário em APROVAR E ENVIAR. */
     fun approve(c: Context, id: Long, edited: String? = null) {
         val it = items.firstOrNull { x -> x.id == id } ?: return
+        val wasEdited = !edited.isNullOrBlank() && edited.trim() != it.reply
         if (!edited.isNullOrBlank()) it.reply = edited.trim()
+        feedback(c, if (wasEdited) "edited" else "sent", it.reply)
         val p = pending.remove(id)
         var sent = false
         if (p != null) {
@@ -89,6 +91,7 @@ object Hub {
     fun discard(c: Context, id: Long) {
         pending.remove(id)
         items.firstOrNull { x -> x.id == id }?.status = "descartada"
+        feedback(c, "discarded", "")
         persist(c)
         onChange?.invoke()
     }
@@ -113,7 +116,27 @@ object Hub {
     }
 
     /** Devolve a sugestão da API, ou null se a API mandou pular / deu erro. */
-    fun fetch(c: Context, sender: String, message: String): String? {
+    /** Avisa o WordPress o que você fez com a sugestão (métricas e aprendizado de estilo). */
+    private fun feedback(c: Context, status: String, text: String) {
+        Thread {
+            try {
+                val u = Prefs.url(c).replace("rando-webhook", "rando-feedback")
+                val conn = URL(u).openConnection() as HttpURLConnection
+                conn.requestMethod = "POST"
+                conn.connectTimeout = 10000
+                conn.readTimeout = 10000
+                conn.doOutput = true
+                conn.setRequestProperty("Content-Type", "application/json")
+                conn.setRequestProperty("X-Rando-Token", Prefs.token(c))
+                val body = JSONObject().put("status", status).put("text", text).toString()
+                conn.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+                conn.responseCode
+            } catch (_: Exception) {
+            }
+        }.start()
+    }
+
+    fun fetch(c: Context, sender: String, message: String, regen: Boolean = false): String? {
         return try {
             val conn = URL(Prefs.url(c)).openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
@@ -122,7 +145,9 @@ object Hub {
             conn.doOutput = true
             conn.setRequestProperty("Content-Type", "application/json")
             conn.setRequestProperty("X-Rando-Token", Prefs.token(c))
-            val body = JSONObject().put("sender", sender).put("message", message).toString()
+            val jb = JSONObject().put("sender", sender).put("message", message)
+            if (regen) jb.put("regen", true)
+            val body = jb.toString()
             conn.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
             if (conn.responseCode != 200) return null
             val txt = conn.inputStream.bufferedReader().use { it.readText() }
