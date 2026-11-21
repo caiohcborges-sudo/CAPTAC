@@ -84,9 +84,34 @@ class CopilotoListener : NotificationListenerService() {
         }
     }
 
+    private var queueTv: TextView? = null
+
+    private fun refreshQueue() {
+        val n = Hub.pendingCount() - 1
+        queueTv?.let {
+            it.visibility = if (n > 0) View.VISIBLE else View.GONE
+            it.text = "+$n na fila"
+        }
+    }
+
+    /** Chegou sugestão: se já há um card aberto, entra na fila; senão abre. */
     private fun present(item: Hub.Item) {
         buzz()
-        if (Settings.canDrawOverlays(this)) showOverlay(item) else showNotification(item)
+        if (!Settings.canDrawOverlays(this)) {
+            showNotification(item)
+        } else if (overlay != null) {
+            refreshQueue()
+        } else {
+            showOverlay(item)
+        }
+    }
+
+    /** Depois de aprovar/descartar: abre a sugestão mais antiga que ainda vale (até 5 min). */
+    private fun showNext() {
+        val now = System.currentTimeMillis()
+        Hub.items.filter { it.status == "pendente" && now - it.time > 300000 }.forEach { Hub.expire(this, it.id) }
+        val next = Hub.items.lastOrNull { it.status == "pendente" } ?: return
+        showOverlay(next)
     }
 
     private fun showOverlay(item: Hub.Item) {
@@ -101,8 +126,13 @@ class CopilotoListener : NotificationListenerService() {
         v.findViewById<Button>(R.id.ovOk).setOnClickListener {
             Hub.approve(this, item.id, if (editing) et.text.toString() else null)
             removeOverlay()
+            showNext()
         }
-        v.findViewById<Button>(R.id.ovNo).setOnClickListener { Hub.discard(this, item.id); removeOverlay() }
+        v.findViewById<Button>(R.id.ovNo).setOnClickListener {
+            Hub.discard(this, item.id)
+            removeOverlay()
+            showNext()
+        }
         v.findViewById<Button>(R.id.ovRegen).setOnClickListener {
             Thread {
                 val r = Hub.fetch(this, item.sender, item.message, true) ?: return@Thread
@@ -134,9 +164,11 @@ class CopilotoListener : NotificationListenerService() {
         )
         lp.gravity = Gravity.TOP
         lp.y = (48 * resources.displayMetrics.density).toInt()
+        queueTv = v.findViewById(R.id.ovQueue)
         try {
             wm.addView(v, lp)
             overlay = v
+            refreshQueue()
         } catch (_: Exception) {
             showNotification(item)
         }

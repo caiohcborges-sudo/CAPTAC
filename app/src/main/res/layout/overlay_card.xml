@@ -3,6 +3,9 @@
     android:layout_width="match_parent" android:layout_height="wrap_content"
     android:orientation="vertical" android:background="#EE161B22" android:padding="12dp">
 
+    <TextView android:id="@+id/ovQueue" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:textColor="#00C875" android:textSize="12sp"
+        android:textStyle="bold" android:visibility="gone" />
     <TextView android:id="@+id/ovFrom" android:layout_width="match_parent"
         android:layout_height="wrap_content" android:textColor="#8B949E" android:textSize="12sp" />
     <TextView android:id="@+id/ovReply" android:layout_width="match_parent"

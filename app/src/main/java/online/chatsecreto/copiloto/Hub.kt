@@ -88,6 +88,16 @@ object Hub {
         onChange?.invoke()
     }
 
+    /** Sugestão antiga demais (o lead já foi embora): sai da fila sem feedback. */
+    fun expire(c: Context, id: Long) {
+        pending.remove(id)
+        items.firstOrNull { x -> x.id == id }?.status = "expirada"
+        persist(c)
+        onChange?.invoke()
+    }
+
+    fun pendingCount(): Int = items.count { x -> x.status == "pendente" }
+
     fun discard(c: Context, id: Long) {
         pending.remove(id)
         items.firstOrNull { x -> x.id == id }?.status = "descartada"
