@@ -44,6 +44,12 @@ class MainActivity : AppCompatActivity() {
         swAtivo.isChecked = Prefs.enabled(this)
 
         swAtivo.setOnCheckedChangeListener { _, v -> Prefs.setEnabled(this, v) }
+        val swAuto = findViewById<Switch>(R.id.swAuto)
+        swAuto.isChecked = Prefs.auto(this)
+        swAuto.setOnCheckedChangeListener { _, v ->
+            Prefs.setAuto(this, v)
+            Toast.makeText(this, if (v) "Modo AUTOMÁTICO ligado" else "Modo semi-automático", Toast.LENGTH_SHORT).show()
+        }
         findViewById<Button>(R.id.btSalvar).setOnClickListener {
             Prefs.save(this, etUrl.text.toString(), etToken.text.toString(), etPkg.text.toString())
             Toast.makeText(this, "Salvo", Toast.LENGTH_SHORT).show()

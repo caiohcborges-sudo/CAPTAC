@@ -68,10 +68,20 @@ class CopilotoListener : NotificationListenerService() {
             if (pend == null && ri != null && a.actionIntent != null) pend = Hub.Pending(a.actionIntent, ri)
         }
 
+        val auto = Prefs.auto(this)
+        val hasReplyAction = pend != null
         Thread {
-            val reply = Hub.fetch(this, title, text) ?: return@Thread
-            val item = Hub.Item(now, title, text, reply, now, "pendente")
+            val res = Hub.fetchFull(this, title, text, false, auto) ?: return@Thread
+            val item = Hub.Item(now, title, text, res.first, now, "pendente")
             Hub.add(this, item, pend)
+            if (auto && hasReplyAction) {
+                // Modo automático: espera o delay (tempo de "digitação") e envia sozinho.
+                try {
+                    Thread.sleep(res.second.coerceIn(0, 30) * 1000L)
+                } catch (_: InterruptedException) {
+                }
+                if (Hub.autoSend(this, item.id)) return@Thread
+            }
             main.post { present(item) }
         }.start()
     }

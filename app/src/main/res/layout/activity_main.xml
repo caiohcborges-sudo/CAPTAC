@@ -18,6 +18,14 @@
             android:layout_height="wrap_content" android:text="Receber sugestões"
             android:textColor="#E6EDF3" android:layout_marginBottom="12dp" />
 
+        <Switch android:id="@+id/swAuto" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:text="Modo AUTOMÁTICO (a IA responde sozinha)"
+            android:textColor="#00C875" />
+        <TextView android:id="@+id/tvAutoInfo" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:layout_marginBottom="12dp"
+            android:textColor="#8B949E" android:textSize="12sp"
+            android:text="Desligado = semi-automático (você aprova cada resposta). Ligado = envia sozinha após o delay; o 1º toque sempre avisa que é uma IA." />
+
         <EditText android:id="@+id/etUrl" android:layout_width="match_parent"
             android:layout_height="wrap_content" android:hint="URL da API"
             android:inputType="textUri" android:textColor="#E6EDF3" android:textColorHint="#6E7681" />

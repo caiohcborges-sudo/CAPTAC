@@ -17,6 +17,9 @@ object Prefs {
         sp(c).edit().putString("url", url.trim()).putString("token", token.trim()).putString("pkg", pkg.trim()).apply()
     }
 
+    fun auto(c: Context) = sp(c).getBoolean("auto", false)
+    fun setAuto(c: Context, v: Boolean) = sp(c).edit().putBoolean("auto", v).apply()
+
     fun setEnabled(c: Context, v: Boolean) = sp(c).edit().putBoolean("enabled", v).apply()
 
     fun loadHistory(c: Context): String = sp(c).getString("hist", "[]")!!

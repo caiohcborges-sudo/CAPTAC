@@ -59,6 +59,26 @@ object Hub {
     }
 
     /** Só é chamado após o toque do usuário em APROVAR E ENVIAR. */
+    /** Envio do modo automático: tenta o RemoteInput; devolve false se não houver (cai na fila manual). */
+    fun autoSend(c: Context, id: Long): Boolean {
+        val it = items.firstOrNull { x -> x.id == id } ?: return false
+        val p = pending[id] ?: return false
+        return try {
+            val intent = Intent()
+            val b = Bundle()
+            b.putCharSequence(p.ri.resultKey, it.reply)
+            RemoteInput.addResultsToIntent(arrayOf(p.ri), intent, b)
+            p.pi.send(c, 0, intent)
+            pending.remove(id)
+            it.status = "enviada (auto)"
+            persist(c)
+            onChange?.invoke()
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     fun approve(c: Context, id: Long, edited: String? = null) {
         val it = items.firstOrNull { x -> x.id == id } ?: return
         val wasEdited = !edited.isNullOrBlank() && edited.trim() != it.reply
@@ -146,7 +166,11 @@ object Hub {
         }.start()
     }
 
-    fun fetch(c: Context, sender: String, message: String, regen: Boolean = false): String? {
+    fun fetch(c: Context, sender: String, message: String, regen: Boolean = false): String? =
+        fetchFull(c, sender, message, regen, false)?.first
+
+    /** Devolve (resposta, delay_seconds) ou null se a API mandou pular / deu erro. */
+    fun fetchFull(c: Context, sender: String, message: String, regen: Boolean, auto: Boolean): Pair<String, Int>? {
         return try {
             val conn = URL(Prefs.url(c)).openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
@@ -157,12 +181,14 @@ object Hub {
             conn.setRequestProperty("X-Rando-Token", Prefs.token(c))
             val jb = JSONObject().put("sender", sender).put("message", message)
             if (regen) jb.put("regen", true)
+            if (auto) jb.put("auto", true)
             val body = jb.toString()
             conn.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
             if (conn.responseCode != 200) return null
             val txt = conn.inputStream.bufferedReader().use { it.readText() }
             val j = JSONObject(txt)
-            if (j.optBoolean("skip", false)) null else j.optString("reply", "").ifBlank { null }
+            val r = j.optString("reply", "")
+            if (j.optBoolean("skip", false) || r.isBlank()) null else Pair(r, j.optInt("delay_seconds", 8))
         } catch (_: Exception) {
             null
         }
