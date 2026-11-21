@@ -1,93 +1,217 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent" android:layout_height="match_parent"
-    android:background="#0B0D10" android:fillViewport="true">
+    android:background="#0B0D10" android:orientation="vertical">
 
-    <LinearLayout
-        android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:orientation="vertical" android:padding="16dp">
+    <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
 
-        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:text="Copiloto de Atendimento" android:textColor="#FFFFFF"
-            android:textSize="22sp" android:textStyle="bold" />
-        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:layout_marginBottom="12dp"
-            android:text="Nada é enviado sem o seu toque." android:textColor="#8B949E" />
+        <!-- ============ INÍCIO ============ -->
+        <ScrollView android:id="@+id/pageHome" android:layout_width="match_parent" android:layout_height="match_parent">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:padding="16dp">
 
-        <Button android:id="@+id/btUpdate" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:backgroundTint="#1F6FEB"
-            android:text="ATUALIZAR APP" />
-        <TextView android:id="@+id/tvVer" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:layout_marginBottom="4dp"
-            android:textColor="#58A6FF" android:textSize="14sp" android:textStyle="bold" />
-        <TextView android:id="@+id/tvHealth" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:layout_marginBottom="8dp"
-            android:background="#161B22" android:padding="10dp"
-            android:textColor="#E6EDF3" android:textSize="13sp" />
-        <Button android:id="@+id/btSim" android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="SIMULAR UMA MENSAGEM (testa API + IA sem o RandoChat)" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="Copiloto" android:textColor="#FFFFFF" android:textSize="24sp" android:textStyle="bold" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:layout_marginBottom="14dp" android:text="Atendimento das conversas não lidas"
+                    android:textColor="#8B949E" android:textSize="13sp" />
 
-        <Switch android:id="@+id/swAtivo" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:text="Receber sugestões"
-            android:textColor="#E6EDF3" android:layout_marginBottom="12dp" />
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp" android:background="@drawable/card"
+                    android:orientation="vertical" android:padding="14dp">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="ESTADO" android:textColor="#00C875" android:textSize="12sp" android:textStyle="bold" />
+                    <TextView android:id="@+id/tvVer" android:layout_width="match_parent"
+                        android:layout_height="wrap_content" android:layout_marginTop="4dp"
+                        android:textColor="#58A6FF" android:textSize="14sp" android:textStyle="bold" />
+                    <TextView android:id="@+id/tvHealth" android:layout_width="match_parent"
+                        android:layout_height="wrap_content" android:layout_marginTop="6dp"
+                        android:textColor="#E6EDF3" android:textSize="13sp" />
+                    <Button android:id="@+id/btUpdate" android:layout_width="match_parent"
+                        android:layout_height="wrap_content" android:layout_marginTop="8dp"
+                        android:backgroundTint="#1F6FEB" android:text="ATUALIZAR APP" />
+                </LinearLayout>
 
-        <Switch android:id="@+id/swAuto" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:text="Modo AUTOMÁTICO (a IA responde sozinha)"
-            android:textColor="#00C875" />
-        <TextView android:id="@+id/tvAutoInfo" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:layout_marginBottom="12dp"
-            android:textColor="#8B949E" android:textSize="12sp"
-            android:text="Desligado = semi-automático (você aprova cada resposta). Ligado = envia sozinha após o delay; o 1º toque sempre avisa que é uma IA." />
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp" android:background="@drawable/card"
+                    android:orientation="vertical" android:padding="14dp">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="ATENDIMENTO" android:textColor="#00C875" android:textSize="12sp" android:textStyle="bold" />
+                    <Switch android:id="@+id/swAtivo" android:layout_width="match_parent"
+                        android:layout_height="wrap_content" android:layout_marginTop="6dp"
+                        android:text="Receber sugestões" android:textColor="#E6EDF3" />
+                    <Switch android:id="@+id/swAuto" android:layout_width="match_parent"
+                        android:layout_height="wrap_content" android:layout_marginTop="6dp"
+                        android:text="Modo AUTOMÁTICO" android:textColor="#00C875" />
+                    <TextView android:id="@+id/tvAutoInfo" android:layout_width="match_parent"
+                        android:layout_height="wrap_content" android:layout_marginBottom="8dp"
+                        android:textColor="#8B949E" android:textSize="12sp"
+                        android:text="Desligado = semi-automático (você aprova cada resposta). Ligado = envia sozinho após o delay; o aviso de IA vai no passo de convite." />
+                    <Button android:id="@+id/btScan" android:layout_width="match_parent"
+                        android:layout_height="wrap_content" android:backgroundTint="#00C875"
+                        android:text="ATENDER AS CONVERSAS NÃO LIDAS AGORA" />
+                    <Button android:id="@+id/btSim" android:layout_width="match_parent"
+                        android:layout_height="wrap_content" android:backgroundTint="#30363D"
+                        android:text="SIMULAR UMA MENSAGEM (teste)" />
+                </LinearLayout>
 
-        <EditText android:id="@+id/etUrl" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:hint="URL da API"
-            android:inputType="textUri" android:textColor="#E6EDF3" android:textColorHint="#6E7681" />
-        <EditText android:id="@+id/etToken" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:hint="Token secreto (X-Rando-Token)"
-            android:inputType="textPassword" android:textColor="#E6EDF3" android:textColorHint="#6E7681" />
-        <EditText android:id="@+id/etPkg" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:hint="Pacote do app alvo (vírgula p/ vários)"
-            android:inputType="text" android:textColor="#E6EDF3" android:textColorHint="#6E7681" />
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp" android:background="@drawable/card"
+                    android:orientation="vertical" android:padding="14dp">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="NÚMEROS DO PLUGIN" android:textColor="#00C875" android:textSize="12sp" android:textStyle="bold" />
+                    <TextView android:id="@+id/tvStats" android:layout_width="match_parent"
+                        android:layout_height="wrap_content" android:layout_marginTop="4dp"
+                        android:textColor="#E6EDF3" android:textSize="13sp"
+                        android:text="Abra a aba Plugin para carregar." />
+                </LinearLayout>
+            </LinearLayout>
+        </ScrollView>
 
-        <Button android:id="@+id/btSalvar" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:text="SALVAR" />
+        <!-- ============ PLUGIN (configuração remota) ============ -->
+        <ScrollView android:id="@+id/pagePlugin" android:layout_width="match_parent"
+            android:layout_height="match_parent" android:visibility="gone">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:padding="16dp">
 
-        <Button android:id="@+id/btTest" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:text="TESTAR CONEXÃO API" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="Configurar o plugin" android:textColor="#FFFFFF" android:textSize="22sp" android:textStyle="bold" />
+                <TextView android:id="@+id/tvCfgStatus" android:layout_width="match_parent"
+                    android:layout_height="wrap_content" android:layout_marginBottom="10dp"
+                    android:textColor="#8B949E" android:textSize="13sp"
+                    android:text="Tudo o que existe no painel do WordPress está aqui." />
 
-        <TextView android:id="@+id/tvPerm" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:layout_marginTop="12dp"
-            android:textColor="#E6EDF3" />
-        <Button android:id="@+id/btAcc" android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="1) ATIVAR ENVIO PELA TELA (acessibilidade) — padrão para responder" />
-        <Button android:id="@+id/btScan" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:backgroundTint="#00C875"
-            android:text="2) ATENDER AS CONVERSAS NÃO LIDAS AGORA" />
-        <Button android:id="@+id/btNotif" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:text="Conceder acesso às notificações" />
-        <Button android:id="@+id/btOverlay" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:text="Permitir sobrepor a outros apps" />
+                <Button android:id="@+id/btLoadCfg" android:layout_width="match_parent"
+                    android:layout_height="wrap_content" android:backgroundTint="#30363D"
+                    android:text="CARREGAR DO PLUGIN" />
+                <Button android:id="@+id/btSaveCfg" android:layout_width="match_parent"
+                    android:layout_height="wrap_content" android:layout_marginBottom="12dp"
+                    android:backgroundTint="#00C875" android:text="SALVAR NO PLUGIN" />
 
-        <Button android:id="@+id/btBattery" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:text="Ignorar otimização de bateria (recomendado)" />
+                <LinearLayout android:id="@+id/llCfg" android:layout_width="match_parent"
+                    android:layout_height="wrap_content" android:orientation="vertical" />
 
-        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:layout_marginTop="16dp" android:text="Diagnóstico (o que o app está vendo)"
-            android:textColor="#F5A524" android:textStyle="bold" />
-        <Button android:id="@+id/btUsePkg" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:text="USAR PACOTE DA ÚLTIMA NOTIFICAÇÃO RECEBIDA" />
-        <TextView android:id="@+id/tvDiag" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:background="#161B22"
-            android:padding="12dp" android:textColor="#C9D1D9" android:textSize="11sp"
-            android:text="Nenhuma notificação vista ainda. Se continuar vazio com mensagens chegando, falta o acesso às notificações." />
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp" android:layout_marginBottom="12dp"
+                    android:background="@drawable/card" android:orientation="vertical" android:padding="14dp">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="AÇÕES" android:textColor="#00C875" android:textSize="12sp" android:textStyle="bold" />
+                    <Button android:id="@+id/btPurge" android:layout_width="match_parent"
+                        android:layout_height="wrap_content" android:backgroundTint="#30363D"
+                        android:text="LIMPAR REGISTROS COM MAIS DE 7 DIAS" />
+                    <Button android:id="@+id/btRegenToken" android:layout_width="match_parent"
+                        android:layout_height="wrap_content" android:backgroundTint="#E11D48"
+                        android:text="GERAR NOVO TOKEN" />
+                </LinearLayout>
+            </LinearLayout>
+        </ScrollView>
 
-        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:layout_marginTop="16dp" android:text="Últimas sugestões"
-            android:textColor="#00C875" android:textStyle="bold" />
-        <TextView android:id="@+id/tvHist" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:background="#161B22"
-            android:padding="12dp" android:textColor="#E6EDF3" android:text="—" />
+        <!-- ============ CONEXÃO ============ -->
+        <ScrollView android:id="@+id/pageConn" android:layout_width="match_parent"
+            android:layout_height="match_parent" android:visibility="gone">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:padding="16dp">
+
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:layout_marginBottom="10dp" android:text="Conexão e permissões"
+                    android:textColor="#FFFFFF" android:textSize="22sp" android:textStyle="bold" />
+
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp" android:background="@drawable/card"
+                    android:orientation="vertical" android:padding="14dp">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="CONEXÃO COM O PLUGIN" android:textColor="#00C875" android:textSize="12sp" android:textStyle="bold" />
+                    <EditText android:id="@+id/etUrl" android:layout_width="match_parent"
+                        android:layout_height="wrap_content" android:hint="URL da API" android:inputType="textUri"
+                        android:textColor="#E6EDF3" android:textColorHint="#6E7681" />
+                    <EditText android:id="@+id/etToken" android:layout_width="match_parent"
+                        android:layout_height="wrap_content" android:hint="Token secreto" android:inputType="textPassword"
+                        android:textColor="#E6EDF3" android:textColorHint="#6E7681" />
+                    <EditText android:id="@+id/etPkg" android:layout_width="match_parent"
+                        android:layout_height="wrap_content" android:hint="Pacote do app alvo" android:inputType="text"
+                        android:textColor="#E6EDF3" android:textColorHint="#6E7681" />
+                    <Button android:id="@+id/btSalvar" android:layout_width="match_parent"
+                        android:layout_height="wrap_content" android:backgroundTint="#00C875" android:text="SALVAR" />
+                    <Button android:id="@+id/btTest" android:layout_width="match_parent"
+                        android:layout_height="wrap_content" android:backgroundTint="#30363D" android:text="TESTAR CONEXÃO API" />
+                    <Button android:id="@+id/btUsePkg" android:layout_width="match_parent"
+                        android:layout_height="wrap_content" android:backgroundTint="#30363D"
+                        android:text="USAR PACOTE DA ÚLTIMA NOTIFICAÇÃO" />
+                </LinearLayout>
+
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp" android:background="@drawable/card"
+                    android:orientation="vertical" android:padding="14dp">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="PERMISSÕES" android:textColor="#00C875" android:textSize="12sp" android:textStyle="bold" />
+                    <TextView android:id="@+id/tvPerm" android:layout_width="match_parent"
+                        android:layout_height="wrap_content" android:layout_marginTop="4dp"
+                        android:textColor="#E6EDF3" android:textSize="13sp" />
+                    <Button android:id="@+id/btAcc" android:layout_width="match_parent"
+                        android:layout_height="wrap_content" android:backgroundTint="#30363D"
+                        android:text="1) ATIVAR ENVIO PELA TELA (acessibilidade)" />
+                    <Button android:id="@+id/btNotif" android:layout_width="match_parent"
+                        android:layout_height="wrap_content" android:backgroundTint="#30363D"
+                        android:text="2) ACESSO ÀS NOTIFICAÇÕES" />
+                    <Button android:id="@+id/btOverlay" android:layout_width="match_parent"
+                        android:layout_height="wrap_content" android:backgroundTint="#30363D"
+                        android:text="3) SOBREPOR A OUTROS APPS" />
+                    <Button android:id="@+id/btBattery" android:layout_width="match_parent"
+                        android:layout_height="wrap_content" android:backgroundTint="#30363D"
+                        android:text="4) IGNORAR OTIMIZAÇÃO DE BATERIA" />
+                </LinearLayout>
+            </LinearLayout>
+        </ScrollView>
+
+        <!-- ============ REGISTRO ============ -->
+        <ScrollView android:id="@+id/pageLog" android:layout_width="match_parent"
+            android:layout_height="match_parent" android:visibility="gone">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:padding="16dp">
+
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:layout_marginBottom="10dp" android:text="Registro"
+                    android:textColor="#FFFFFF" android:textSize="22sp" android:textStyle="bold" />
+
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp" android:background="@drawable/card"
+                    android:orientation="vertical" android:padding="14dp">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="DIAGNÓSTICO (o que o app está vendo)" android:textColor="#F5A524"
+                        android:textSize="12sp" android:textStyle="bold" />
+                    <TextView android:id="@+id/tvDiag" android:layout_width="match_parent"
+                        android:layout_height="wrap_content" android:layout_marginTop="6dp"
+                        android:textColor="#C9D1D9" android:textSize="11sp"
+                        android:text="Nada ainda. Se continuar vazio com mensagens chegando, falta o acesso às notificações." />
+                </LinearLayout>
+
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp" android:background="@drawable/card"
+                    android:orientation="vertical" android:padding="14dp">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="ÚLTIMAS SUGESTÕES" android:textColor="#00C875" android:textSize="12sp" android:textStyle="bold" />
+                    <TextView android:id="@+id/tvHist" android:layout_width="match_parent"
+                        android:layout_height="wrap_content" android:layout_marginTop="6dp"
+                        android:textColor="#E6EDF3" android:textSize="13sp" android:text="—" />
+                </LinearLayout>
+            </LinearLayout>
+        </ScrollView>
+    </FrameLayout>
+
+    <!-- ============ BARRA DE ABAS ============ -->
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:background="#0F141A" android:orientation="horizontal">
+        <TextView android:id="@+id/tabHome" android:layout_width="0dp" android:layout_height="wrap_content"
+            android:layout_weight="1" android:gravity="center" android:padding="14dp"
+            android:text="Início" android:textSize="13sp" android:textStyle="bold" />
+        <TextView android:id="@+id/tabPlugin" android:layout_width="0dp" android:layout_height="wrap_content"
+            android:layout_weight="1" android:gravity="center" android:padding="14dp"
+            android:text="Plugin" android:textSize="13sp" android:textStyle="bold" />
+        <TextView android:id="@+id/tabConn" android:layout_width="0dp" android:layout_height="wrap_content"
+            android:layout_weight="1" android:gravity="center" android:padding="14dp"
+            android:text="Conexão" android:textSize="13sp" android:textStyle="bold" />
+        <TextView android:id="@+id/tabLog" android:layout_width="0dp" android:layout_height="wrap_content"
+            android:layout_weight="1" android:gravity="center" android:padding="14dp"
+            android:text="Registro" android:textSize="13sp" android:textStyle="bold" />
     </LinearLayout>
-</ScrollView>
+</LinearLayout>

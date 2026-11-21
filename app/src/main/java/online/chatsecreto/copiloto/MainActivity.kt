@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.Switch
@@ -17,6 +18,7 @@ import androidx.core.app.NotificationManagerCompat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import org.json.JSONObject
 
 class MainActivity : AppCompatActivity() {
 
@@ -118,8 +120,141 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName")))
         }
         applyDeepLink(intent)
+        setupTabs()
+        setupPlugin()
         if (Build.VERSION.SDK_INT >= 33) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
+        }
+    }
+
+
+    // ---------- abas ----------
+
+    private lateinit var pages: List<View>
+    private lateinit var tabs: List<TextView>
+    private var cfgForm: CfgForm? = null
+    private var lastStats = 0L
+
+    private fun showTab(i: Int) {
+        pages.forEachIndexed { k, p -> p.visibility = if (k == i) View.VISIBLE else View.GONE }
+        tabs.forEachIndexed { k, t -> t.setTextColor(if (k == i) 0xFF00C875.toInt() else 0xFF8B949E.toInt()) }
+        if (i == 1 && cfgForm?.loaded != true && Prefs.token(this).isNotBlank()) loadCfg()
+    }
+
+    private fun setupTabs() {
+        pages = listOf(R.id.pageHome, R.id.pagePlugin, R.id.pageConn, R.id.pageLog).map { findViewById<View>(it) }
+        tabs = listOf(R.id.tabHome, R.id.tabPlugin, R.id.tabConn, R.id.tabLog).map { findViewById<TextView>(it) }
+        tabs.forEachIndexed { k, t -> t.setOnClickListener { showTab(k) } }
+        showTab(if (Prefs.token(this).isBlank()) 2 else 0) // sem token ainda: começa pela Conexão
+    }
+
+    // ---------- configuração remota do plugin ----------
+
+    private fun loadCfg() {
+        val st = findViewById<TextView>(R.id.tvCfgStatus)
+        st.text = "Carregando…"
+        Thread {
+            val r = Remote.get(this)
+            runOnUiThread {
+                val j = r.json
+                if (j == null) {
+                    st.text = "❌ ${r.error}"
+                    return@runOnUiThread
+                }
+                val f = CfgForm(this, findViewById(R.id.llCfg))
+                f.build(j)
+                cfgForm = f
+                showStats(j)
+                st.text = "✅ Carregado — plugin v${j.optString("version")}. Edite e toque em SALVAR NO PLUGIN."
+            }
+        }.start()
+    }
+
+    private fun showStats(j: JSONObject) {
+        val s = j.optJSONObject("stats") ?: return
+        val fb = j.optJSONObject("fb")
+        var t = "Atendidos hoje: ${s.optInt("today")} · Convites enviados: ${s.optInt("invites")} · Leads no total: ${s.optInt("total")}"
+        if (fb != null) {
+            val tot = fb.optInt("sent") + fb.optInt("edited") + fb.optInt("discarded")
+            t += "\nSugestões: enviadas ${fb.optInt("sent")} · editadas ${fb.optInt("edited")} · descartadas ${fb.optInt("discarded")}"
+            if (tot > 0) t += " · aproveitamento ${100 * (fb.optInt("sent") + fb.optInt("edited")) / tot}%"
+        }
+        findViewById<TextView>(R.id.tvStats).text = t
+    }
+
+    /** Atualiza só os números da aba Início (no máximo 1 vez por minuto). */
+    private fun fetchStats() {
+        if (Prefs.token(this).isBlank() || System.currentTimeMillis() - lastStats < 60000) return
+        lastStats = System.currentTimeMillis()
+        Thread {
+            val r = Remote.get(this)
+            val j = r.json ?: return@Thread
+            runOnUiThread { showStats(j) }
+        }.start()
+    }
+
+    private fun setupPlugin() {
+        findViewById<Button>(R.id.btLoadCfg).setOnClickListener { loadCfg() }
+        findViewById<Button>(R.id.btSaveCfg).setOnClickListener {
+            val f = cfgForm
+            val st = findViewById<TextView>(R.id.tvCfgStatus)
+            if (f == null || !f.loaded) {
+                Toast.makeText(this, "Toque em CARREGAR DO PLUGIN primeiro.", Toast.LENGTH_LONG).show()
+                return@setOnClickListener
+            }
+            val vals = f.collect()
+            st.text = "Salvando…"
+            Thread {
+                val r = Remote.save(this, vals)
+                runOnUiThread {
+                    val j = r.json
+                    if (j == null) {
+                        st.text = "❌ ${r.error}"
+                    } else {
+                        showStats(j)
+                        st.text = "✅ Salvo no plugin."
+                        Toast.makeText(this, "Salvo no plugin ✅", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }.start()
+        }
+        findViewById<Button>(R.id.btPurge).setOnClickListener {
+            AlertDialog.Builder(this)
+                .setTitle("Limpar registros")
+                .setMessage("Apagar do plugin os leads com mais de 7 dias? Isso não pode ser desfeito.")
+                .setPositiveButton("APAGAR") { _, _ ->
+                    Thread {
+                        val r = Remote.admin(this, "purge")
+                        runOnUiThread {
+                            val msg = r.json?.let { "Apagados: ${it.optInt("deleted")}" } ?: "❌ ${r.error}"
+                            Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
+                        }
+                    }.start()
+                }
+                .setNegativeButton("Cancelar", null)
+                .show()
+        }
+        findViewById<Button>(R.id.btRegenToken).setOnClickListener {
+            AlertDialog.Builder(this)
+                .setTitle("Gerar novo token")
+                .setMessage("O token antigo deixa de valer. O app salva o novo automaticamente, mas qualquer outro celular precisará do QR de novo.")
+                .setPositiveButton("GERAR") { _, _ ->
+                    Thread {
+                        val r = Remote.admin(this, "regen_token")
+                        runOnUiThread {
+                            val t = r.json?.optString("token") ?: ""
+                            if (t.isBlank()) {
+                                Toast.makeText(this, "❌ ${r.error ?: "falhou"}", Toast.LENGTH_LONG).show()
+                            } else {
+                                Prefs.save(this, etUrl.text.toString(), t, etPkg.text.toString())
+                                etToken.setText(t)
+                                Toast.makeText(this, "Novo token salvo no app ✅", Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    }.start()
+                }
+                .setNegativeButton("Cancelar", null)
+                .show()
         }
     }
 
@@ -192,6 +327,7 @@ class MainActivity : AppCompatActivity() {
         }
         Hub.onChange = { runOnUiThread { refresh() } }
         refresh()
+        fetchStats()
     }
 
     override fun onPause() {
