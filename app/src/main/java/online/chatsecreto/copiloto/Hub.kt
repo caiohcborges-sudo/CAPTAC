@@ -188,6 +188,12 @@ object Hub {
         pending.remove(id)
         items.firstOrNull { x -> x.id == id }?.status = "descartada"
         feedback(c, "discarded", "")
+        if (Scan.active) {
+            Scan.opening = null
+            Scan.fetching = false
+            Scan.busy = false
+            ReplyService.inst?.requestBack()
+        }
         persist(c)
         onChange?.invoke()
     }
