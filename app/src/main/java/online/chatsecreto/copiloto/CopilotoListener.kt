@@ -36,9 +36,19 @@ class CopilotoListener : NotificationListenerService() {
         private val SYSTEM = Regex("procurando|conectado|desconectado|saiu do chat|an[uú]ncio|digitando", RegexOption.IGNORE_CASE)
     }
 
+    private val updateTick = object : Runnable {
+        override fun run() {
+            Thread {
+                Updater.check(this@CopilotoListener)?.let { Updater.notifyAvailable(this@CopilotoListener, it) }
+            }.start()
+            main.postDelayed(this, 6 * 60 * 60 * 1000L) // confere a cada 6 h
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         Hub.load(this)
+        main.postDelayed(updateTick, 15000)
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
@@ -233,6 +243,7 @@ class CopilotoListener : NotificationListenerService() {
     }
 
     override fun onDestroy() {
+        main.removeCallbacks(updateTick)
         removeOverlay()
         super.onDestroy()
     }

@@ -11,6 +11,7 @@ import android.widget.EditText
 import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.NotificationManagerCompat
 import java.text.SimpleDateFormat
@@ -68,6 +69,8 @@ class MainActivity : AppCompatActivity() {
                 runOnUiThread { Toast.makeText(this, r, Toast.LENGTH_LONG).show() }
             }.start()
         }
+        findViewById<TextView>(R.id.tvVer).text = "Versão: build ${Updater.currentBuild(this)}"
+        findViewById<Button>(R.id.btUpdate).setOnClickListener { checkUpdate(true) }
         findViewById<Button>(R.id.btUsePkg).setOnClickListener {
             val p = Hub.lastPkg
             if (p == null) {
@@ -85,6 +88,34 @@ class MainActivity : AppCompatActivity() {
         if (Build.VERSION.SDK_INT >= 33) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
         }
+    }
+
+    private var askedUpdate = false
+
+    /** Confere a release mais nova; se houver, pergunta se quer atualizar (manual = mostra também "já está atualizado"). */
+    private fun checkUpdate(manual: Boolean) {
+        Thread {
+            val info = Updater.check(this)
+            runOnUiThread {
+                if (info == null) {
+                    if (manual) Toast.makeText(this, "Você já está na versão mais nova.", Toast.LENGTH_LONG).show()
+                    return@runOnUiThread
+                }
+                AlertDialog.Builder(this)
+                    .setTitle("Atualização disponível")
+                    .setMessage("Build ${info.build} (você está na ${Updater.currentBuild(this)}). Atualizar agora?")
+                    .setPositiveButton("ATUALIZAR") { _, _ ->
+                        Toast.makeText(this, "Baixando…", Toast.LENGTH_LONG).show()
+                        Thread {
+                            Updater.downloadAndInstall(this, info) { m ->
+                                runOnUiThread { Toast.makeText(this, m, Toast.LENGTH_LONG).show() }
+                            }
+                        }.start()
+                    }
+                    .setNegativeButton("Depois", null)
+                    .show()
+            }
+        }.start()
     }
 
     override fun onNewIntent(i: Intent) {
@@ -108,6 +139,10 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (!askedUpdate) {
+            askedUpdate = true
+            checkUpdate(false) // ao abrir o app, já pergunta se houver versão nova
+        }
         Hub.onChange = { runOnUiThread { refresh() } }
         refresh()
     }

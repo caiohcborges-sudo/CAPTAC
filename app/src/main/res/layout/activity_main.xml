@@ -14,6 +14,13 @@
             android:layout_marginBottom="12dp"
             android:text="Nada é enviado sem o seu toque." android:textColor="#8B949E" />
 
+        <Button android:id="@+id/btUpdate" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:backgroundTint="#1F6FEB"
+            android:text="ATUALIZAR APP" />
+        <TextView android:id="@+id/tvVer" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:layout_marginBottom="8dp"
+            android:textColor="#8B949E" android:textSize="12sp" />
+
         <Switch android:id="@+id/swAtivo" android:layout_width="match_parent"
             android:layout_height="wrap_content" android:text="Receber sugestões"
             android:textColor="#E6EDF3" android:layout_marginBottom="12dp" />
