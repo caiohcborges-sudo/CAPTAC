@@ -23,6 +23,17 @@ object Hub {
     val items = CopyOnWriteArrayList<Item>() // mais nova primeiro
     private val pending = ConcurrentHashMap<Long, Pending>()
     @Volatile var onChange: (() -> Unit)? = null
+
+    /** Diagnóstico: o que o app viu e por que ignorou (não persiste). */
+    val diagLog = CopyOnWriteArrayList<String>()
+    @Volatile var lastPkg: String? = null
+
+    fun diag(s: String) {
+        val f = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())
+        diagLog.add(0, "$f $s")
+        while (diagLog.size > 25) diagLog.removeAt(diagLog.size - 1)
+        onChange?.invoke()
+    }
     private var loaded = false
 
     @Synchronized

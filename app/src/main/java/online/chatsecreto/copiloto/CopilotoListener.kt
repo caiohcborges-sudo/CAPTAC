@@ -42,17 +42,26 @@ class CopilotoListener : NotificationListenerService() {
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
-        if (!Prefs.enabled(this)) return
         val n = sbn.notification
-        if (n.flags and Notification.FLAG_GROUP_SUMMARY != 0) return
         val pkg = sbn.packageName.lowercase()
         if (pkg == packageName) return
-        if (Prefs.targets(this).none { pkg.contains(it) }) return
-
-        val title = n.extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
-        val text = n.extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.trim().orEmpty()
-        if (title.isEmpty() || text.isEmpty()) return
-        if (text.length <= 60 && SYSTEM.containsMatchIn(text)) return
+        Hub.lastPkg = sbn.packageName
+        val ex = n.extras
+        val title = ex.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
+        // Texto: normal, expandido ou a última mensagem de um estilo de conversa.
+        var text = ex.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.trim().orEmpty()
+        if (text.isEmpty()) text = ex.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()?.trim().orEmpty()
+        if (text.isEmpty()) {
+            val msgs = ex.getParcelableArray(Notification.EXTRA_MESSAGES)
+            val last = msgs?.lastOrNull() as? android.os.Bundle
+            text = last?.getCharSequence("text")?.toString()?.trim().orEmpty()
+        }
+        val tag = "${sbn.packageName} | $title"
+        if (!Prefs.enabled(this)) { Hub.diag("$tag — ignorada: switch 'Receber sugestões' desligado"); return }
+        if (n.flags and Notification.FLAG_GROUP_SUMMARY != 0) { Hub.diag("$tag — ignorada: resumo de grupo"); return }
+        if (Prefs.targets(this).none { pkg.contains(it) }) { Hub.diag("$tag — ignorada: pacote não bate com o alvo"); return }
+        if (title.isEmpty() || text.isEmpty()) { Hub.diag("$tag — ignorada: sem título ou texto"); return }
+        if (text.length <= 60 && SYSTEM.containsMatchIn(text)) { Hub.diag("$tag — ignorada: mensagem de sistema"); return }
 
         // Duplicada em menos de 3s.
         val k = "$title|$text"
@@ -71,7 +80,12 @@ class CopilotoListener : NotificationListenerService() {
         val auto = Prefs.auto(this)
         val hasReplyAction = pend != null
         Thread {
-            val res = Hub.fetchFull(this, title, text, false, auto) ?: return@Thread
+            val res = Hub.fetchFull(this, title, text, false, auto)
+            if (res == null) {
+                Hub.diag("$tag — sem sugestão: API pulou ou falhou (token, limite ou chave DeepSeek)")
+                return@Thread
+            }
+            Hub.diag("$tag — ✅ sugestão gerada")
             val item = Hub.Item(now, title, text, res.first, now, "pendente")
             Hub.add(this, item, pend)
             if (auto && hasReplyAction) {

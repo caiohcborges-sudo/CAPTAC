@@ -54,6 +54,16 @@
             android:layout_height="wrap_content" android:text="Ignorar otimização de bateria (recomendado)" />
 
         <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_marginTop="16dp" android:text="Diagnóstico (o que o app está vendo)"
+            android:textColor="#F5A524" android:textStyle="bold" />
+        <Button android:id="@+id/btUsePkg" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:text="USAR PACOTE DA ÚLTIMA NOTIFICAÇÃO RECEBIDA" />
+        <TextView android:id="@+id/tvDiag" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:background="#161B22"
+            android:padding="12dp" android:textColor="#C9D1D9" android:textSize="11sp"
+            android:text="Nenhuma notificação vista ainda. Se continuar vazio com mensagens chegando, falta o acesso às notificações." />
+
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
             android:layout_marginTop="16dp" android:text="Últimas sugestões"
             android:textColor="#00C875" android:textStyle="bold" />
         <TextView android:id="@+id/tvHist" android:layout_width="match_parent"

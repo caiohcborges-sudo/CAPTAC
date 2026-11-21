@@ -68,6 +68,16 @@ class MainActivity : AppCompatActivity() {
                 runOnUiThread { Toast.makeText(this, r, Toast.LENGTH_LONG).show() }
             }.start()
         }
+        findViewById<Button>(R.id.btUsePkg).setOnClickListener {
+            val p = Hub.lastPkg
+            if (p == null) {
+                Toast.makeText(this, "Nenhuma notificação vista ainda", Toast.LENGTH_LONG).show()
+            } else {
+                etPkg.setText(p)
+                Prefs.save(this, etUrl.text.toString(), etToken.text.toString(), p)
+                Toast.makeText(this, "Pacote alvo = $p", Toast.LENGTH_LONG).show()
+            }
+        }
         findViewById<Button>(R.id.btBattery).setOnClickListener {
             startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName")))
         }
@@ -112,6 +122,7 @@ class MainActivity : AppCompatActivity() {
         val o = Settings.canDrawOverlays(this)
         tvPerm.text = (if (n) "✅" else "❌") + " Acesso às notificações\n" +
             (if (o) "✅" else "❌") + " Sobrepor a outros apps (sem isso, uso a notificação)"
+        if (Hub.diagLog.isNotEmpty()) findViewById<TextView>(R.id.tvDiag).text = Hub.diagLog.joinToString("\n")
         val f = SimpleDateFormat("HH:mm", Locale.getDefault())
         tvHist.text = if (Hub.items.isEmpty()) "—" else Hub.items.take(15).joinToString("\n\n") {
             "${f.format(Date(it.time))} • ${it.sender}: ${it.message}\n→ ${it.reply}  [${it.status}]"
