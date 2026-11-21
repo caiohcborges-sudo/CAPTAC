@@ -52,6 +52,17 @@ object Hub {
         }
     }
 
+    /** Abre o app alvo do zero (limpa a pilha de telas): usado pelo vigia de tempo. */
+    fun relaunchFresh(c: Context) {
+        try {
+            val pkg = Prefs.targets(c).firstOrNull { it.contains('.') } ?: lastPkg ?: return
+            val i = c.packageManager.getLaunchIntentForPackage(pkg) ?: return
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+            c.startActivity(i)
+        } catch (_: Exception) {
+        }
+    }
+
     /** Entrega a resposta pela tela: abre o chat (notificação) ou a conversa na lista e o serviço cola e envia. */
     fun screenSend(c: Context, id: Long): Boolean {
         val it = items.firstOrNull { x -> x.id == id } ?: return false
@@ -59,6 +70,7 @@ object Hub {
         if (!ReplyService.isEnabled(c)) return false
         val ci = contentIntents[id]
         return try {
+            Scan.progress()
             screen = ScreenReply(id, it.reply, pkg, System.currentTimeMillis() + 90000, fromList = ci == null)
             if (ci != null) ci.send() else if (!ReplyService.inForeground(pkg)) launchTarget(c)
             it.status = "abrindo o chat…"

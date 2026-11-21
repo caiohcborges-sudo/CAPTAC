@@ -23,6 +23,15 @@ object Scan {
     class Open(val name: String, val msg: String, val conv: String, val at: Long)
     @Volatile var opening: Open? = null
     @Volatile var fetching = false
+    @Volatile var lastProgress = 0L
+    @Volatile var restarts = 0
+    @Volatile var adsClosed = 0
+    @Volatile var tRow = 0L
+    @Volatile var tChat = 0L
+    @Volatile var tApi = 0L
+    fun progress() {
+        lastProgress = System.currentTimeMillis()
+    }
     val seen: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
     fun start(c: Context, ci: PendingIntent?) {
@@ -31,6 +40,8 @@ object Scan {
         opening = null
         fetching = false
         active = true
+        restarts = 0
+        progress()
         until = System.currentTimeMillis() + 5 * 60000L
         Hub.diag("varredura de não lidas iniciada")
         try {
@@ -128,14 +139,45 @@ class ReplyService : AccessibilityService() {
             Hub.diag("varredura: tempo esgotado")
         }
         val cur = Hub.screen
-        if (cur == null && !Scan.active) return
+        val working = cur != null || Scan.active
+        val adOn = Prefs.closeAds(this) && Prefs.enabled(this)
+        if (!working && !adOn) return
+        // Vigia de tempo: atendendo e sem avanço há 45 s -> fecha e reabre o app.
+        if (working && Scan.lastProgress > 0 && now - Scan.lastProgress > 45000) {
+            recover()
+            return
+        }
         val root = rootInActiveWindow ?: return
         val pkgName = root.packageName?.toString() ?: ""
-        // Anúncio por cima da conversa (do app alvo ou do Google): fecha só pelo botão "Fechar".
-        if ((isTarget(pkgName) || pkgName.startsWith("com.google.android")) && Prefs.closeAds(this) && closeAd(root)) return
+        // Anúncio por cima da conversa (do app alvo ou do Google): fecha só pelo botão de fechar.
+        if (adOn && (isTarget(pkgName) || pkgName.startsWith("com.google.android")) && closeAd(root)) {
+            Scan.progress()
+            return
+        }
+        if (!working) return
         if (!isTarget(pkgName)) return
         val field = findEditable(root)
         if (field != null) inChat(root, field, cur) else onList(root, cur)
+    }
+
+    /** Sem avanço há 45 s: HOME e abre o app do zero (até 3 vezes por varredura). */
+    private fun recover() {
+        Scan.progress()
+        Hub.screen?.let { Hub.setStatus(this, it.id, "falhou (tela): sem progresso") }
+        Hub.screen = null
+        Scan.opening = null
+        Scan.fetching = false
+        Scan.busy = false
+        attemptsFor = -1
+        if (Scan.restarts >= 3) {
+            Scan.active = false
+            Hub.diag("⏱ sem progresso e já reiniciei 3 vezes: parei. Confira o app.")
+            return
+        }
+        Scan.restarts++
+        Hub.diag("⏱ sem progresso há 45 s → fechando e reabrindo o RandoChat (${Scan.restarts}/3)")
+        performGlobalAction(GLOBAL_ACTION_HOME)
+        h.postDelayed({ Hub.relaunchFresh(this) }, 1200)
     }
 
     fun requestBack() {
@@ -159,6 +201,8 @@ class ReplyService : AccessibilityService() {
             }
             if (Scan.fetching) return
             Scan.fetching = true
+            Scan.tChat = System.currentTimeMillis()
+            Scan.progress()
             val incoming = readIncoming(root, field)
             val message = if (incoming.isEmpty()) op.msg else incoming.takeLast(3).joinToString(" | ")
             Hub.diag("lendo a conversa de ${op.name}: \"$message\"")
@@ -204,10 +248,17 @@ class ReplyService : AccessibilityService() {
         }
     }
 
+    private fun sec(ms: Long) = if (ms <= 0) "0" else String.format(java.util.Locale.US, "%.1f", ms / 1000.0)
+
     private fun sent(s: Hub.ScreenReply) {
+        val t = System.currentTimeMillis()
+        Scan.progress()
         Hub.screen = null
         Hub.setStatus(this, s.id, "enviada (pela tela)")
-        Hub.diag("✅ resposta enviada pela tela")
+        Hub.diag(
+            "✅ resposta enviada pela tela · abrir ${sec(Scan.tChat - Scan.tRow)}s · conversa+IA ${sec(Scan.tApi - Scan.tChat)}s · " +
+                "espera+enviar ${sec(t - Scan.tApi)}s · total ${sec(t - Scan.tRow)}s"
+        )
         attemptsFor = -1
         Scan.opening = null
         Scan.fetching = false
@@ -222,30 +273,40 @@ class ReplyService : AccessibilityService() {
         dispatchGesture(g, null, null)
     }
 
-    /** Tentativa 1: clicar no botão achado; 2: tocar no centro dele; 3: tocar à direita do campo; 4: tecla Enter. */
+    /**
+     * Botão de enviar = o elemento da faixa mais à direita (círculo laranja), nunca o clipe de anexo.
+     * Tentativa 1: clicar no botão achado (ou tocar na posição); 2: tocar no centro; 3: tocar um pouco mais à direita; 4: Enter.
+     */
     private fun sendOnce(root: AccessibilityNodeInfo, field: AccessibilityNodeInfo, n: Int) {
         val btn = findSend(root, field)
         val rb = android.graphics.Rect()
         root.getBoundsInScreen(rb)
         val fb = android.graphics.Rect()
         field.getBoundsInScreen(fb)
+        val y = fb.exactCenterY()
+        val estX = rb.left + 0.917f * rb.width() // centro do círculo de enviar (à direita do campo)
+        val r = android.graphics.Rect()
+        if (btn != null) btn.getBoundsInScreen(r)
         when (n) {
             1 -> {
-                Hub.diag("tentativa 1: clique no botão " + (if (btn != null) "achado" else "(não achei botão)"))
-                btn?.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                if (btn != null) {
+                    Hub.diag("tentativa 1: clique no botão de enviar achado")
+                    btn.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                } else {
+                    Hub.diag("tentativa 1: toque na posição do botão de enviar (${estX.toInt()}, ${y.toInt()})")
+                    tap(estX, y)
+                }
             }
             2 -> {
-                val r = android.graphics.Rect()
-                if (btn != null) btn.getBoundsInScreen(r)
-                val x = if (btn != null) r.exactCenterX() else (fb.right + rb.right) / 2f
-                val y = if (btn != null) r.exactCenterY() else fb.exactCenterY()
-                Hub.diag("tentativa 2: toque na tela em (${x.toInt()}, ${y.toInt()})")
-                tap(x, y)
+                val x = if (btn != null) r.exactCenterX() else estX
+                val yy = if (btn != null) r.exactCenterY() else y
+                Hub.diag("tentativa 2: toque em (${x.toInt()}, ${yy.toInt()})")
+                tap(x, yy)
             }
             3 -> {
-                val x = (fb.right + rb.right) / 2f
-                Hub.diag("tentativa 3: toque à direita do campo em (${x.toInt()}, ${fb.centerY()})")
-                tap(x, fb.exactCenterY())
+                val x = rb.left + 0.90f * rb.width()
+                Hub.diag("tentativa 3: toque em (${x.toInt()}, ${y.toInt()})")
+                tap(x, y)
             }
             else -> {
                 Hub.diag("tentativa 4: tecla Enter")
@@ -301,6 +362,8 @@ class ReplyService : AccessibilityService() {
                 return@Thread
             }
             val now = System.currentTimeMillis()
+            Scan.tApi = now
+            Scan.progress()
             val item = Hub.Item(now, op.name, message, res.first, now, "pendente", op.conv)
             Hub.add(this, item, null, null, pkg)
             Hub.diag("${op.name} — ✅ sugestão gerada · modo " + (if (auto) "automático" else "semi"))
@@ -309,6 +372,7 @@ class ReplyService : AccessibilityService() {
                     Thread.sleep(res.second.coerceIn(0, 30) * 1000L)
                 } catch (_: InterruptedException) {
                 }
+                Scan.progress()
                 Hub.screen = Hub.ScreenReply(item.id, item.reply, pkg, System.currentTimeMillis() + 60000, fromList = false)
                 Hub.setStatus(this, item.id, "enviando pela tela…")
             } else {
@@ -388,25 +452,71 @@ class ReplyService : AccessibilityService() {
         val conv = if (isGeneric(row.name)) row.name + "#" + row.msg.take(20) else row.name
         Scan.opening = Scan.Open(row.name, row.msg, conv, System.currentTimeMillis())
         Hub.diag("abrindo a conversa de ${row.name}")
+        Scan.tRow = System.currentTimeMillis()
+        Scan.progress()
         row.node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
     }
 
 
     // ---------- anúncios ----------
 
-    private val closeRe = Regex("^\\s*(fechar|close|dismiss|pular|skip|×|✕|x)\\s*(an[uú]ncio|ad)?\\s*$", RegexOption.IGNORE_CASE)
-    private val adMarkRe = Regex("google play|an[uú]ncio|patrocinad|sponsored|instalar|install|\\bad\\b|abrir", RegexOption.IGNORE_CASE)
+    private val closeRe = Regex("^\\s*(fechar|close|dismiss|pular|skip|×|✕|✖|x)\\s*(an[uú]ncio|ad)?\\s*$", RegexOption.IGNORE_CASE)
+    // Anúncio = selo (Google Play / Anúncio / Patrocinado / Ad) E botão de ação (Abrir / Instalar...), com o texto inteiro do elemento.
+    private val adBadgeRe = Regex("^(google play|an[uú]ncio|patrocinad|sponsored|ad\\b)", RegexOption.IGNORE_CASE)
+    private val adActionRe = Regex("^(abrir|instalar|install|open|baixar|download|jogar|visitar|visitar site|saiba mais|learn more)$", RegexOption.IGNORE_CASE)
+    private val badBtnRe = Regex("abrir|instalar|install|open|saiba|learn|baixar|download|jogar|visitar|play", RegexOption.IGNORE_CASE)
     private var adSeenAt = 0L
     private var adBackAt = 0L
+    private var lastAdClick = 0L
 
-    /** true = há um anúncio na tela (tratado). Só toca em "Fechar"; nunca em Abrir/Instalar. */
+    /** A tela é do próprio RandoChat (lista ou chat)? Então "Abrir" é só o banner de rodapé, não um anúncio em tela cheia. */
+    private fun isAppScreen(leaves: List<String>) =
+        leaves.any { it.equals("Não lidas", true) || it.equals("Todas", true) || it.startsWith("Digite aqui", true) }
+
+    /**
+     * true = anúncio em tela cheia na tela (tratado). Só procura o botão de fechar:
+     * 1) rótulo Fechar/Close/×; 2) ícone × sem rótulo no canto de cima; 3) sem botão: tecla Voltar após 3 s.
+     * Nunca toca em Abrir/Instalar nem no corpo do anúncio.
+     */
     private fun closeAd(root: AccessibilityNodeInfo): Boolean {
-        val btn = findClose(root) ?: return false
         val leaves = mutableListOf<String>()
         gather(root, leaves)
-        if (leaves.none { adMarkRe.containsMatchIn(it) }) return false // "Fechar" sem cara de anúncio: ignora
-        Hub.diag("anúncio detectado → tocando em Fechar")
-        var n: AccessibilityNodeInfo? = btn
+        val isAd = leaves.any { adBadgeRe.containsMatchIn(it.trim()) } && leaves.any { adActionRe.matches(it.trim()) }
+        if (!isAd || isAppScreen(leaves) || findEditable(root) != null) {
+            adSeenAt = 0L
+            return false
+        }
+        val now = System.currentTimeMillis()
+        if (adSeenAt == 0L) {
+            adSeenAt = now
+            Hub.diag("anúncio detectado na tela")
+        }
+        var target = findClose(root)
+        var how = "rótulo"
+        if (target == null) {
+            target = findCornerClose(root)
+            how = "ícone no canto"
+        }
+        if (target != null) {
+            if (now - lastAdClick > 1200) {
+                lastAdClick = now
+                Scan.adsClosed++
+                Hub.diag("→ fechando o anúncio ($how) · anúncios fechados: ${Scan.adsClosed}")
+                clickUp(target)
+            }
+            return true
+        }
+        if (now - adSeenAt > 3000 && now - adBackAt > 3000) {
+            adBackAt = now
+            Hub.diag("anúncio sem botão de fechar visível → tecla Voltar")
+            performGlobalAction(GLOBAL_ACTION_BACK)
+        }
+        return true
+    }
+
+    /** Clica no nó ou no primeiro ancestral clicável; se nada responder, toca no centro do próprio botão de fechar. */
+    private fun clickUp(node: AccessibilityNodeInfo) {
+        var n: AccessibilityNodeInfo? = node
         var done = false
         while (n != null && !done) {
             if (n.isClickable) done = n.performAction(AccessibilityNodeInfo.ACTION_CLICK)
@@ -414,10 +524,9 @@ class ReplyService : AccessibilityService() {
         }
         if (!done) {
             val r = android.graphics.Rect()
-            btn.getBoundsInScreen(r)
+            node.getBoundsInScreen(r)
             tap(r.exactCenterX(), r.exactCenterY())
         }
-        return true
     }
 
     private fun findClose(n: AccessibilityNodeInfo?): AccessibilityNodeInfo? {
@@ -426,6 +535,40 @@ class ReplyService : AccessibilityService() {
         if (label.isNotBlank() && closeRe.matches(label)) return n
         for (i in 0 until n.childCount) findClose(n.getChild(i))?.let { return it }
         return null
+    }
+
+    /** Ícone de fechar sem texto: pequeno, no topo e num canto (direita de preferência). Nunca algo rotulado Abrir/Instalar. */
+    private fun findCornerClose(root: AccessibilityNodeInfo): AccessibilityNodeInfo? {
+        val rb = android.graphics.Rect()
+        root.getBoundsInScreen(rb)
+        val d = resources.displayMetrics.density
+        var best: AccessibilityNodeInfo? = null
+        var bestScore = -1f
+        fun walk(x: AccessibilityNodeInfo?) {
+            if (x == null) return
+            val r = android.graphics.Rect()
+            x.getBoundsInScreen(r)
+            val cls = x.className?.toString() ?: ""
+            val label = (x.text?.toString() ?: "") + " " + (x.contentDescription?.toString() ?: "")
+            val small = r.width() in (20 * d).toInt()..(84 * d).toInt() && r.height() in (20 * d).toInt()..(84 * d).toInt()
+            val top = r.top < rb.top + rb.height() * 0.20f
+            val clickish = x.isClickable || cls.contains("Image") || cls.contains("Button")
+            if (small && top && clickish && !badBtnRe.containsMatchIn(label)) {
+                val cx = r.exactCenterX()
+                val score = when {
+                    cx > rb.left + rb.width() * 0.75f -> cx - rb.left // canto direito: o mais à direita
+                    cx < rb.left + rb.width() * 0.25f -> (rb.width() * 0.5f) - (cx - rb.left) // canto esquerdo
+                    else -> -1f
+                }
+                if (score > bestScore) {
+                    bestScore = score
+                    best = x
+                }
+            }
+            for (i in 0 until x.childCount) walk(x.getChild(i))
+        }
+        walk(root)
+        return best
     }
 
     // ---------- utilidades de nós ----------
@@ -438,23 +581,28 @@ class ReplyService : AccessibilityService() {
     }
 
     private val sendRe = Regex("enviar|send|mandar|submit", RegexOption.IGNORE_CASE)
+    private val notSendRe = Regex("anex|attach|clip|emoji|sticker|figurinha|gif|c[aâ]mera|galeria|image|foto", RegexOption.IGNORE_CASE)
 
+    /** Rótulo "enviar/send"; senão o clicável mais à direita (acima de 80% da largura) na linha do campo, que não seja anexo/emoji. */
     private fun findSend(n: AccessibilityNodeInfo?, field: AccessibilityNodeInfo): AccessibilityNodeInfo? {
         findSendByLabel(n)?.let { return it }
-        // Reserva: o botão clicável à direita do campo de texto, na mesma altura.
+        val rb = android.graphics.Rect()
+        n?.getBoundsInScreen(rb)
         val fb = android.graphics.Rect()
         field.getBoundsInScreen(fb)
         var best: AccessibilityNodeInfo? = null
-        var bestLeft = -1
+        var bestX = -1f
         fun walk(x: AccessibilityNodeInfo?) {
             if (x == null) return
             if (x.isClickable && !x.isEditable) {
                 val r = android.graphics.Rect()
                 x.getBoundsInScreen(r)
-                val sameRow = r.centerY() in (fb.top - 60)..(fb.bottom + 60)
-                if (sameRow && r.left >= fb.right - 24 && r.left > bestLeft) {
+                val label = (x.contentDescription?.toString() ?: "") + " " + (x.text?.toString() ?: "") + " " + (x.viewIdResourceName ?: "")
+                val sameRow = r.centerY() in (fb.top - fb.height())..(fb.bottom + fb.height())
+                val farRight = r.exactCenterX() > rb.left + rb.width() * 0.80f
+                if (sameRow && farRight && !notSendRe.containsMatchIn(label) && r.exactCenterX() > bestX) {
                     best = x
-                    bestLeft = r.left
+                    bestX = r.exactCenterX()
                 }
             }
             for (i in 0 until x.childCount) walk(x.getChild(i))
@@ -466,7 +614,7 @@ class ReplyService : AccessibilityService() {
     private fun findSendByLabel(n: AccessibilityNodeInfo?): AccessibilityNodeInfo? {
         if (n == null) return null
         val label = (n.contentDescription?.toString() ?: "") + " " + (n.text?.toString() ?: "") + " " + (n.viewIdResourceName ?: "")
-        if ((n.isClickable || n.isEnabled) && sendRe.containsMatchIn(label) && !n.isEditable) return n
+        if ((n.isClickable || n.isEnabled) && sendRe.containsMatchIn(label) && !notSendRe.containsMatchIn(label) && !n.isEditable) return n
         for (i in 0 until n.childCount) findSendByLabel(n.getChild(i))?.let { return it }
         return null
     }
