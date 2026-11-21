@@ -75,7 +75,7 @@ class CopilotoListener : NotificationListenerService() {
         if (text.length <= 60 && SYSTEM.containsMatchIn(text)) { Hub.diag("$tag — ignorada: mensagem de sistema"); return }
 
         // Duplicada em menos de 3s.
-        val k = "$title|$text"
+        val k = "$title|$text|${sbn.id}|${sbn.tag}"
         val now = System.currentTimeMillis()
         if (now - (lastSeen[k] ?: 0L) < 3000) return
         lastSeen[k] = now
@@ -90,8 +90,11 @@ class CopilotoListener : NotificationListenerService() {
 
         val auto = Prefs.auto(this)
         val hasReplyAction = pend != null
+        // Id da conversa: separa vários "Anônimo" (o plugin usa nome + id).
+        val conv = (n.shortcutId ?: sbn.tag ?: "") + "#" + sbn.id
+        Hub.diag("$tag — conversa: $conv")
         Thread {
-            val res = Hub.fetchFull(this, title, text, false, auto)
+            val res = Hub.fetchFull(this, title, text, false, auto, conv)
             if (res == null) {
                 Hub.diag("$tag — sem sugestão: API pulou ou falhou (token, limite ou chave DeepSeek)")
                 return@Thread
@@ -101,7 +104,7 @@ class CopilotoListener : NotificationListenerService() {
                     (if (hasReplyAction) "SIM" else "NÃO (não dá para enviar sozinho; use o card)") +
                     " · modo: " + (if (auto) "automático" else "semi")
             )
-            val item = Hub.Item(now, title, text, res.first, now, "pendente")
+            val item = Hub.Item(now, title, text, res.first, now, "pendente", conv)
             Hub.add(this, item, pend, n.contentIntent, sbn.packageName)
             if (auto) {
                 // Modo automático: espera o delay (tempo de "digitação") e envia sozinho.
@@ -174,7 +177,7 @@ class CopilotoListener : NotificationListenerService() {
         }
         v.findViewById<Button>(R.id.ovRegen).setOnClickListener {
             Thread {
-                val r = Hub.fetch(this, item.sender, item.message, true) ?: return@Thread
+                val r = Hub.fetch(this, item.sender, item.message, true, item.conv) ?: return@Thread
                 item.reply = r
                 main.post {
                     tvReply.text = r

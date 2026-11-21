@@ -17,7 +17,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 /** Estado em memória: sugestões, ações pendentes da notificação original e chamada à API. */
 object Hub {
 
-    data class Item(val id: Long, val sender: String, val message: String, var reply: String, val time: Long, var status: String)
+    data class Item(val id: Long, val sender: String, val message: String, var reply: String, val time: Long, var status: String, val conv: String = "")
     class Pending(val pi: PendingIntent, val ri: RemoteInput)
 
     val items = CopyOnWriteArrayList<Item>() // mais nova primeiro
@@ -77,7 +77,7 @@ object Hub {
             val a = JSONArray(Prefs.loadHistory(c))
             for (i in 0 until a.length()) {
                 val o = a.getJSONObject(i)
-                items.add(Item(o.getLong("id"), o.getString("s"), o.getString("m"), o.getString("r"), o.getLong("t"), o.getString("st")))
+                items.add(Item(o.getLong("id"), o.getString("s"), o.getString("m"), o.getString("r"), o.getLong("t"), o.getString("st"), o.optString("cv", "")))
             }
         } catch (_: Exception) {
         }
@@ -86,7 +86,7 @@ object Hub {
     private fun persist(c: Context) {
         val a = JSONArray()
         items.forEach {
-            a.put(JSONObject().put("id", it.id).put("s", it.sender).put("m", it.message).put("r", it.reply).put("t", it.time).put("st", it.status))
+            a.put(JSONObject().put("id", it.id).put("s", it.sender).put("m", it.message).put("r", it.reply).put("t", it.time).put("st", it.status).put("cv", it.conv))
         }
         Prefs.saveHistory(c, a.toString())
     }
@@ -226,11 +226,11 @@ object Hub {
         }.start()
     }
 
-    fun fetch(c: Context, sender: String, message: String, regen: Boolean = false): String? =
-        fetchFull(c, sender, message, regen, false)?.first
+    fun fetch(c: Context, sender: String, message: String, regen: Boolean = false, conv: String = ""): String? =
+        fetchFull(c, sender, message, regen, false, conv)?.first
 
-    /** Devolve (resposta, delay_seconds) ou null se a API mandou pular / deu erro. */
-    fun fetchFull(c: Context, sender: String, message: String, regen: Boolean, auto: Boolean): Pair<String, Int>? {
+    /** Devolve (resposta, delay_seconds) ou null se a API mandou pular / deu erro. conv = id da conversa (separa vários "Anônimo"). */
+    fun fetchFull(c: Context, sender: String, message: String, regen: Boolean, auto: Boolean, conv: String = ""): Pair<String, Int>? {
         return try {
             val conn = URL(Prefs.url(c)).openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
@@ -240,6 +240,7 @@ object Hub {
             conn.setRequestProperty("Content-Type", "application/json")
             conn.setRequestProperty("X-Rando-Token", Prefs.token(c))
             val jb = JSONObject().put("sender", sender).put("message", message)
+            if (conv.isNotEmpty()) jb.put("conv", conv)
             if (regen) jb.put("regen", true)
             if (auto) jb.put("auto", true)
             val body = jb.toString()
