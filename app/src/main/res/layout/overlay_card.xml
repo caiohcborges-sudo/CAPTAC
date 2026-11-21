@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:orientation="vertical" android:background="#EE161B22" android:padding="12dp">
+
+    <TextView android:id="@+id/ovFrom" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:textColor="#8B949E" android:textSize="12sp" />
+    <TextView android:id="@+id/ovReply" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:layout_marginTop="4dp"
+        android:textColor="#FFFFFF" android:textSize="15sp" />
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="8dp" android:orientation="horizontal">
+        <Button android:id="@+id/ovOk" android:layout_width="0dp" android:layout_height="wrap_content"
+            android:layout_weight="1" android:backgroundTint="#00C875" android:text="APROVAR E ENVIAR" />
+        <Button android:id="@+id/ovNo" android:layout_width="0dp" android:layout_height="wrap_content"
+            android:layout_weight="1" android:backgroundTint="#E11D48" android:text="DESCARTAR" />
+    </LinearLayout>
+</LinearLayout>

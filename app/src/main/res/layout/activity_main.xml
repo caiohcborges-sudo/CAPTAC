@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:background="#0B0D10" android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="vertical" android:padding="16dp">
+
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="Copiloto de Atendimento" android:textColor="#FFFFFF"
+            android:textSize="22sp" android:textStyle="bold" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:text="Nada é enviado sem o seu toque." android:textColor="#8B949E" />
+
+        <Switch android:id="@+id/swAtivo" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:text="Receber sugestões"
+            android:textColor="#E6EDF3" android:layout_marginBottom="12dp" />
+
+        <EditText android:id="@+id/etUrl" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:hint="URL da API"
+            android:inputType="textUri" android:textColor="#E6EDF3" android:textColorHint="#6E7681" />
+        <EditText android:id="@+id/etToken" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:hint="Token secreto (X-Rando-Token)"
+            android:inputType="textPassword" android:textColor="#E6EDF3" android:textColorHint="#6E7681" />
+        <EditText android:id="@+id/etPkg" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:hint="Pacote do app alvo (vírgula p/ vários)"
+            android:inputType="text" android:textColor="#E6EDF3" android:textColorHint="#6E7681" />
+
+        <Button android:id="@+id/btSalvar" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:text="SALVAR" />
+
+        <TextView android:id="@+id/tvPerm" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:layout_marginTop="12dp"
+            android:textColor="#E6EDF3" />
+        <Button android:id="@+id/btNotif" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:text="Conceder acesso às notificações" />
+        <Button android:id="@+id/btOverlay" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:text="Permitir sobrepor a outros apps" />
+
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_marginTop="16dp" android:text="Últimas sugestões"
+            android:textColor="#00C875" android:textStyle="bold" />
+        <TextView android:id="@+id/tvHist" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:background="#161B22"
+            android:padding="12dp" android:textColor="#E6EDF3" android:text="—" />
+    </LinearLayout>
+</ScrollView>
