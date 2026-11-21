@@ -166,14 +166,14 @@ class MainActivity : AppCompatActivity() {
     private val tick = object : Runnable {
         override fun run() {
             refresh()
-            tvHealth.postDelayed(this, 3000)
+            tvHist.postDelayed(this, 3000)
         }
     }
 
     override fun onResume() {
         super.onResume()
-        tvHealth.removeCallbacks(tick)
-        tvHealth.postDelayed(tick, 3000)
+        tvHist.removeCallbacks(tick)
+        tvHist.postDelayed(tick, 3000)
         if (!askedUpdate) {
             askedUpdate = true
             checkUpdate(false) // ao abrir o app, já pergunta se houver versão nova
@@ -183,7 +183,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onPause() {
-        tvHealth.removeCallbacks(tick)
+        tvHist.removeCallbacks(tick)
         Hub.onChange = null
         super.onPause()
     }
