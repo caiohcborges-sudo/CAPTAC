@@ -388,11 +388,33 @@ class ReplyService : AccessibilityService() {
     private val timeRe = Regex("^\\d{1,2}:\\d{2}$")
     private val badgeRe = Regex("^\\d{1,3}$")
 
+    private val listBounds = android.graphics.Rect()
+
+    /** Banner/anúncio da lista (ex.: "Timo… ABRIR"): nunca é conversa e nunca recebe toque. */
+    private fun looksLikeAd(n: AccessibilityNodeInfo, texts: List<String>): Boolean {
+        val cls = n.className?.toString() ?: ""
+        val vid = n.viewIdResourceName ?: ""
+        if (cls.contains("AdView") || cls.contains("NativeAd") || cls.contains("gms.ads") ||
+            vid.contains("banner", true) || vid.contains("ad_", true) || vid.contains("_ad", true)
+        ) return true
+        if (texts.any {
+                val t = it.trim()
+                adActionRe.matches(t) || adBadgeRe.containsMatchIn(t) ||
+                    t.equals("Grátis", true) || t.equals("Gratuito", true) || t.equals("Free", true)
+            }
+        ) return true
+        val r = android.graphics.Rect()
+        n.getBoundsInScreen(r)
+        // faixa de baixo da tela (onde fica o banner), mesmo que não tenha rótulo
+        return listBounds.height() > 0 && r.centerY() > listBounds.top + 0.87f * listBounds.height()
+    }
+
     private fun collectRows(n: AccessibilityNodeInfo?, out: MutableList<Row>) {
         if (n == null) return
         if (n.isClickable) {
             val texts = mutableListOf<String>()
             gather(n, texts)
+            if (looksLikeAd(n, texts)) return // não toca nem desce no anúncio
             if (texts.size >= 2) {
                 val badge = texts.lastOrNull { badgeRe.matches(it) && texts.size >= 3 }
                 val others = texts.filter { it != badge && !timeRe.matches(it) }
@@ -417,6 +439,7 @@ class ReplyService : AccessibilityService() {
     private fun isGeneric(name: String) = name.isBlank() || name.equals("Anônimo", true) || name.equals("Anonimo", true)
 
     private fun onList(root: AccessibilityNodeInfo, s: Hub.ScreenReply?) {
+        root.getBoundsInScreen(listBounds)
         val rows = mutableListOf<Row>()
         collectRows(root, rows)
 
