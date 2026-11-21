@@ -466,10 +466,37 @@ class ReplyService : AccessibilityService() {
 
     private fun isGeneric(name: String) = name.isBlank() || name.equals("Anônimo", true) || name.equals("Anonimo", true)
 
+    private var unknownSince = 0L
+
     private fun onList(root: AccessibilityNodeInfo, s: Hub.ScreenReply?) {
         root.getBoundsInScreen(listBounds)
         val rows = mutableListOf<Row>()
         collectRows(root, rows)
+
+        // Nem lista (sem conversas à vista) nem chat: provavelmente um anúncio ou tela estranha.
+        if (rows.isEmpty()) {
+            val nowU = System.currentTimeMillis()
+            if (unknownSince == 0L) unknownSince = nowU
+            val elU = nowU - unknownSince
+            if (elU > 6000 && nowU - lastRelaunch > 8000) {
+                lastRelaunch = nowU
+                Scan.restarts++
+                if (Scan.restarts > 6) {
+                    Scan.finish()
+                    Hub.diag("tela desconhecida e já saí/entrei 6 vezes: parei. Confira o app.")
+                    return
+                }
+                val tx = mutableListOf<String>()
+                gather(root, tx)
+                Hub.diag(
+                    "tela desconhecida há ${elU / 1000}s (${winClass.substringAfterLast('.')}) textos: " +
+                        tx.take(6).joinToString(" | ") + " → saindo e entrando no app"
+                )
+                exitReenter(elU > 20000)
+            }
+            return
+        }
+        unknownSince = 0L
 
         if (s != null) {
             // Há uma resposta pronta: abre a conversa certa.
@@ -515,7 +542,7 @@ class ReplyService : AccessibilityService() {
     private val closeIdRe = Regex("(^|[:/_])(close|dismiss|skip|cross|btn_x)([_a-z0-9]*)$", RegexOption.IGNORE_CASE)
 
     // Tela de anúncio pelo NOME da janela (funciona mesmo quando o conteúdo não é legível): AdMob e outras redes.
-    private val adWindowRe = Regex("(\\.ads\\.|AdActivity|InterstitialAd|RewardedAd|applovin|unity3d\\.ads|vungle|chartboost|ironsource|inmobi|mbridge|mintegral|pangle|adcolony|audiencenetwork|fyber)", RegexOption.IGNORE_CASE)
+    private val adWindowRe = Regex("(\\.ads?\\.|AdActivity|AdsActivity|AdMob|AdView|Interstitial|Rewarded|applovin|unity3d|vungle|chartboost|ironsource|inmobi|mbridge|mintegral|pangle|adcolony|audiencenetwork|fyber|startapp|tapjoy)", RegexOption.IGNORE_CASE)
 
     // Anúncio pelo conteúdo = selo (Google Play / Anúncio / Patrocinado / Ad) E botão de ação (Abrir / Instalar...), com o texto inteiro do elemento.
     private val adBadgeRe = Regex("^(google play|an[uú]ncio|patrocinad|sponsored|ad\\b)", RegexOption.IGNORE_CASE)
@@ -575,19 +602,19 @@ class ReplyService : AccessibilityService() {
             return true
         }
         val el = now - adSeenAt
-        if (el > 12000 && now - lastRelaunch > 20000) {
+        if (el > 3000 && now - lastRelaunch > 8000) {
             lastRelaunch = now
-            adSeenAt = 0L
-            Hub.diag("anúncio há ${el / 1000}s sem botão de fechar → reabrindo o app do zero")
-            performGlobalAction(GLOBAL_ACTION_HOME)
-            h.postDelayed({ Hub.relaunchFresh(this) }, 800)
-        } else if (el > 4000 && adBacks < 2 && now - adBackAt > 4000) {
-            adBackAt = now
-            adBacks++
-            Hub.diag("anúncio sem botão de fechar há ${el / 1000}s → tecla Voltar ($adBacks/2)")
-            performGlobalAction(GLOBAL_ACTION_BACK)
+            val hard = el > 15000
+            Hub.diag("anúncio há ${el / 1000}s sem botão de fechar → saindo e entrando de novo no app" + (if (hard) " (reinício completo)" else ""))
+            exitReenter(hard)
         }
         return true
+    }
+
+    /** HOME e volta ao app (como você faz com a mão). hard = abre do zero, limpando as telas. */
+    private fun exitReenter(hard: Boolean) {
+        performGlobalAction(GLOBAL_ACTION_HOME)
+        h.postDelayed({ if (hard) Hub.relaunchFresh(this) else Hub.launchTarget(this) }, 700)
     }
 
     /** Clica no nó ou no primeiro ancestral clicável; se nada responder, toca no centro do próprio botão de fechar. */
