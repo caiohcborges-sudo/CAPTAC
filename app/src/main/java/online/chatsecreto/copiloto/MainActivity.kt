@@ -349,6 +349,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun refresh() {
+        // O app pode ter pausado sozinho (aviso da plataforma): reflete nos interruptores.
+        findViewById<Switch>(R.id.swAtivo).let { if (it.isChecked != Prefs.enabled(this)) it.isChecked = Prefs.enabled(this) }
+        findViewById<Switch>(R.id.swAuto).let { if (it.isChecked != Prefs.auto(this)) it.isChecked = Prefs.auto(this) }
         val n = NotificationManagerCompat.getEnabledListenerPackages(this).contains(packageName)
         val o = Settings.canDrawOverlays(this)
         tvPerm.text = (if (n) "✅" else "❌") + " Acesso às notificações\n" +

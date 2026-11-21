@@ -164,6 +164,8 @@ class ReplyService : AccessibilityService() {
         }
         val root = rootInActiveWindow ?: return
         val pkgName = root.packageName?.toString() ?: ""
+        // Aviso oficial da plataforma sobre spam/conduta: pausa tudo e avisa. Não aperta OK.
+        if (isTarget(pkgName) && platformWarning(root, now)) return
         // Anúncio por cima da conversa (do app alvo ou do Google): fecha só pelo botão de fechar.
         if (adOn && (isTarget(pkgName) || pkgName.startsWith("com.google.android")) && closeAd(root)) {
             Scan.progress()
@@ -538,6 +540,44 @@ class ReplyService : AccessibilityService() {
         row.node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
     }
 
+
+    // ---------- aviso da plataforma ----------
+
+    private var lastWarnAt = 0L
+    private val warnTitleRe = Regex("^\\s*aviso( importante)?\\s*$", RegexOption.IGNORE_CASE)
+    private val warnBodyRe = Regex("bloquead|spam|conduta|impr[oó]prio|suspens|banid", RegexOption.IGNORE_CASE)
+
+    /** true = apareceu um aviso de spam/conduta do app alvo. Pausa a automação, avisa o dono e deixa o popup na tela. */
+    private fun platformWarning(root: AccessibilityNodeInfo, now: Long): Boolean {
+        val leaves = mutableListOf<String>()
+        gather(root, leaves)
+        if (leaves.none { warnTitleRe.matches(it) } || leaves.none { warnBodyRe.containsMatchIn(it) }) return false
+        if (now - lastWarnAt > 60000) {
+            lastWarnAt = now
+            Prefs.setEnabled(this, false)
+            Prefs.setAuto(this, false)
+            Scan.finish()
+            Scan.busy = false
+            Scan.opening = null
+            Scan.fetching = false
+            Hub.screen?.let { Hub.setStatus(this, it.id, "interrompida: aviso da plataforma") }
+            Hub.screen = null
+            Hub.diag("⚠️ O app mostrou um AVISO sobre spam/conduta. Pausei tudo (Receber sugestões e Automático desligados). Leia o aviso e revise o que está sendo enviado.")
+            try {
+                val nm = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+                nm.createNotificationChannel(android.app.NotificationChannel("warn", "Avisos", android.app.NotificationManager.IMPORTANCE_HIGH))
+                val n = android.app.Notification.Builder(this, "warn")
+                    .setSmallIcon(android.R.drawable.ic_dialog_alert)
+                    .setContentTitle("RandoChat avisou sobre spam/conduta")
+                    .setContentText("Pausei o Copiloto. Leia o aviso antes de continuar.")
+                    .setAutoCancel(true)
+                    .build()
+                nm.notify(7002, n)
+            } catch (_: Exception) {
+            }
+        }
+        return true // deixa o popup na tela, sem tocar em nada
+    }
 
     // ---------- anúncios ----------
 
