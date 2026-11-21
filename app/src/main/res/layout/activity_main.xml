@@ -62,6 +62,9 @@
         <Button android:id="@+id/btAcc" android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="1) ATIVAR ENVIO PELA TELA (acessibilidade) — padrão para responder" />
+        <Button android:id="@+id/btScan" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:backgroundTint="#00C875"
+            android:text="2) ATENDER AS CONVERSAS NÃO LIDAS AGORA" />
         <Button android:id="@+id/btNotif" android:layout_width="match_parent"
             android:layout_height="wrap_content" android:text="Conceder acesso às notificações" />
         <Button android:id="@+id/btOverlay" android:layout_width="match_parent"

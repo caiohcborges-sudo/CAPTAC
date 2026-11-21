@@ -7,7 +7,11 @@ object Prefs {
 
     fun url(c: Context) = sp(c).getString("url", "https://chatsecreto.online/wp-json/chatsecreto/v1/rando-webhook")!!
     fun token(c: Context) = sp(c).getString("token", "")!!
-    fun pkg(c: Context) = sp(c).getString("pkg", "randochat")!!
+    fun pkg(c: Context): String {
+        val v = sp(c).getString("pkg", "com.random.chat.app")!!
+        // Versões antigas salvaram "randochat", que não é o nome real do pacote.
+        return if (v.trim().equals("randochat", true)) "com.random.chat.app" else v
+    }
     fun enabled(c: Context) = sp(c).getBoolean("enabled", false)
 
     fun targets(c: Context): List<String> =

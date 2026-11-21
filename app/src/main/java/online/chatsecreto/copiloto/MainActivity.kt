@@ -61,6 +61,18 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btAcc).setOnClickListener {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         }
+        findViewById<Button>(R.id.btScan).setOnClickListener {
+            when {
+                !ReplyService.isEnabled(this) ->
+                    Toast.makeText(this, "Primeiro ative o ENVIO PELA TELA (botão 1) e ligue o Copiloto.", Toast.LENGTH_LONG).show()
+                !Prefs.enabled(this) ->
+                    Toast.makeText(this, "Ligue o switch 'Receber sugestões' primeiro.", Toast.LENGTH_LONG).show()
+                else -> {
+                    Scan.start(this, null)
+                    Toast.makeText(this, "Abrindo o RandoChat e lendo as não lidas…", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
         findViewById<Button>(R.id.btNotif).setOnClickListener {
             startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
         }

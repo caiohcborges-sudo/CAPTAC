@@ -29,8 +29,8 @@ object Hub {
     @Volatile var lastPkg: String? = null
     @Volatile var lastAt: Long = 0L
 
-    /** Resposta a colar na tela do chat (só para responder mensagem recebida; vale 30 s). */
-    class ScreenReply(val id: Long, val text: String, val pkg: String, val until: Long)
+    /** Resposta a colar na tela do chat (só para responder mensagem recebida). fromList = veio da lista de não lidas. */
+    class ScreenReply(val id: Long, val text: String, val pkg: String, val until: Long, val fromList: Boolean = false)
     @Volatile var screen: ScreenReply? = null
     private val contentIntents = ConcurrentHashMap<Long, PendingIntent>()
     private val pkgs = ConcurrentHashMap<Long, String>()
@@ -41,15 +41,26 @@ object Hub {
         onChange?.invoke()
     }
 
-    /** Abre o chat da mensagem e deixa o serviço de acessibilidade colar a resposta e enviar. */
-    private fun screenSend(c: Context, id: Long): Boolean {
+    /** Abre o app alvo (para a varredura ou para abrir a conversa a responder). */
+    fun launchTarget(c: Context) {
+        try {
+            val pkg = Prefs.targets(c).firstOrNull { it.contains('.') } ?: lastPkg ?: return
+            val i = c.packageManager.getLaunchIntentForPackage(pkg) ?: return
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            c.startActivity(i)
+        } catch (_: Exception) {
+        }
+    }
+
+    /** Entrega a resposta pela tela: abre o chat (notificação) ou a conversa na lista e o serviço cola e envia. */
+    fun screenSend(c: Context, id: Long): Boolean {
         val it = items.firstOrNull { x -> x.id == id } ?: return false
-        val ci = contentIntents[id] ?: return false
         val pkg = pkgs[id] ?: return false
         if (!ReplyService.isEnabled(c)) return false
+        val ci = contentIntents[id]
         return try {
-            screen = ScreenReply(id, it.reply, pkg, System.currentTimeMillis() + 30000)
-            ci.send()
+            screen = ScreenReply(id, it.reply, pkg, System.currentTimeMillis() + 90000, fromList = ci == null)
+            if (ci != null) ci.send() else if (!ReplyService.inForeground(pkg)) launchTarget(c)
             it.status = "abrindo o chat…"
             persist(c)
             onChange?.invoke()
@@ -100,10 +111,8 @@ object Hub {
             pkgs.remove(old.id)
         }
         if (p != null) pending[item.id] = p
-        if (content != null && pkg != null) {
-            contentIntents[item.id] = content
-            pkgs[item.id] = pkg
-        }
+        if (content != null) contentIntents[item.id] = content
+        if (pkg != null) pkgs[item.id] = pkg
         persist(c)
         onChange?.invoke()
     }

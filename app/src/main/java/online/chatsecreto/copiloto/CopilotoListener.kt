@@ -32,6 +32,13 @@ class CopilotoListener : NotificationListenerService() {
     private var overlay: View? = null
 
     companion object {
+        @Volatile var inst: CopilotoListener? = null
+
+        /** Mostra o card/notificação de uma sugestão criada pela varredura da lista. */
+        fun showCard(item: Hub.Item) {
+            inst?.let { l -> l.main.post { l.present(item) } }
+        }
+
         fun notifId(id: Long) = (id % 100000).toInt() + 1000
         private val SYSTEM = Regex("procurando|conectado|desconectado|saiu do chat|an[uú]ncio|digitando", RegexOption.IGNORE_CASE)
     }
@@ -48,6 +55,7 @@ class CopilotoListener : NotificationListenerService() {
     override fun onCreate() {
         super.onCreate()
         Hub.load(this)
+        inst = this
         main.postDelayed(updateTick, 15000)
     }
 
@@ -71,6 +79,16 @@ class CopilotoListener : NotificationListenerService() {
         if (!Prefs.enabled(this)) { Hub.diag("$tag — ignorada: switch 'Receber sugestões' desligado"); return }
         if (n.flags and Notification.FLAG_GROUP_SUMMARY != 0) { Hub.diag("$tag — ignorada: resumo de grupo"); return }
         if (Prefs.targets(this).none { pkg.contains(it) }) { Hub.diag("$tag — ignorada: pacote não bate com o alvo"); return }
+        // O RandoChat só manda um contador ("Sem ler: N"), sem nome nem texto: dispara a leitura da lista de não lidas.
+        if (Regex("(?i)sem ler|não lida|unread").containsMatchIn(text)) {
+            if (!ReplyService.isEnabled(this)) {
+                Hub.diag("$tag — contador '$text': ative o ENVIO PELA TELA para ler as conversas")
+            } else if (!Scan.active) {
+                Hub.diag("$tag — contador '$text' → lendo as conversas não lidas")
+                Scan.start(this, n.contentIntent)
+            }
+            return
+        }
         if (title.isEmpty() || text.isEmpty()) { Hub.diag("$tag — ignorada: sem título ou texto"); return }
         if (text.length <= 60 && SYSTEM.containsMatchIn(text)) { Hub.diag("$tag — ignorada: mensagem de sistema"); return }
 
@@ -261,6 +279,7 @@ class CopilotoListener : NotificationListenerService() {
 
     override fun onDestroy() {
         main.removeCallbacks(updateTick)
+        inst = null
         removeOverlay()
         super.onDestroy()
     }
