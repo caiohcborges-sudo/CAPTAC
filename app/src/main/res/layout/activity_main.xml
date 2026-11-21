@@ -31,6 +31,9 @@
         <Button android:id="@+id/btSalvar" android:layout_width="match_parent"
             android:layout_height="wrap_content" android:text="SALVAR" />
 
+        <Button android:id="@+id/btTest" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:text="TESTAR CONEXÃO API" />
+
         <TextView android:id="@+id/tvPerm" android:layout_width="match_parent"
             android:layout_height="wrap_content" android:layout_marginTop="12dp"
             android:textColor="#E6EDF3" />
@@ -38,6 +41,9 @@
             android:layout_height="wrap_content" android:text="Conceder acesso às notificações" />
         <Button android:id="@+id/btOverlay" android:layout_width="match_parent"
             android:layout_height="wrap_content" android:text="Permitir sobrepor a outros apps" />
+
+        <Button android:id="@+id/btBattery" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:text="Ignorar otimização de bateria (recomendado)" />
 
         <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
             android:layout_marginTop="16dp" android:text="Últimas sugestões"

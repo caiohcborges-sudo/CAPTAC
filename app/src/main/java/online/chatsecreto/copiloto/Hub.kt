@@ -17,7 +17,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 /** Estado em memória: sugestões, ações pendentes da notificação original e chamada à API. */
 object Hub {
 
-    data class Item(val id: Long, val sender: String, val message: String, val reply: String, val time: Long, var status: String)
+    data class Item(val id: Long, val sender: String, val message: String, var reply: String, val time: Long, var status: String)
     class Pending(val pi: PendingIntent, val ri: RemoteInput)
 
     val items = CopyOnWriteArrayList<Item>() // mais nova primeiro
@@ -59,8 +59,9 @@ object Hub {
     }
 
     /** Só é chamado após o toque do usuário em APROVAR E ENVIAR. */
-    fun approve(c: Context, id: Long) {
+    fun approve(c: Context, id: Long, edited: String? = null) {
         val it = items.firstOrNull { x -> x.id == id } ?: return
+        if (!edited.isNullOrBlank()) it.reply = edited.trim()
         val p = pending.remove(id)
         var sent = false
         if (p != null) {
@@ -90,6 +91,25 @@ object Hub {
         items.firstOrNull { x -> x.id == id }?.status = "descartada"
         persist(c)
         onChange?.invoke()
+    }
+
+    /** Teste de conexão: devolve mensagem para mostrar ao usuário. */
+    fun ping(c: Context): String {
+        return try {
+            val u = Prefs.url(c).replace("rando-webhook", "rando-ping")
+            val conn = URL(u).openConnection() as HttpURLConnection
+            conn.connectTimeout = 10000
+            conn.readTimeout = 10000
+            conn.setRequestProperty("X-Rando-Token", Prefs.token(c))
+            when (conn.responseCode) {
+                200 -> "Conectado ✅"
+                401, 403 -> "Token incorreto ❌"
+                404 -> "Plugin não encontrado (URL errada ou plugin desativado) ❌"
+                else -> "Erro ${conn.responseCode} ❌"
+            }
+        } catch (e: Exception) {
+            "Sem conexão: ${e.javaClass.simpleName} ❌"
+        }
     }
 
     /** Devolve a sugestão da API, ou null se a API mandou pular / deu erro. */

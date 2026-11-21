@@ -18,7 +18,10 @@ import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.WindowManager
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.widget.Button
+import android.widget.EditText
 import android.widget.TextView
 import java.util.concurrent.ConcurrentHashMap
 
@@ -73,7 +76,16 @@ class CopilotoListener : NotificationListenerService() {
         }.start()
     }
 
+    private fun buzz() {
+        try {
+            val vb = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+            vb.vibrate(VibrationEffect.createOneShot(150, VibrationEffect.DEFAULT_AMPLITUDE))
+        } catch (_: Exception) {
+        }
+    }
+
     private fun present(item: Hub.Item) {
+        buzz()
         if (Settings.canDrawOverlays(this)) showOverlay(item) else showNotification(item)
     }
 
@@ -83,8 +95,26 @@ class CopilotoListener : NotificationListenerService() {
         val v = LayoutInflater.from(ContextThemeWrapper(this, R.style.Theme_Copiloto)).inflate(R.layout.overlay_card, null)
         v.findViewById<TextView>(R.id.ovFrom).text = "${item.sender}: ${item.message}"
         v.findViewById<TextView>(R.id.ovReply).text = item.reply
-        v.findViewById<Button>(R.id.ovOk).setOnClickListener { Hub.approve(this, item.id); removeOverlay() }
+        val et = v.findViewById<EditText>(R.id.ovEditText)
+        val tvReply = v.findViewById<TextView>(R.id.ovReply)
+        var editing = false
+        v.findViewById<Button>(R.id.ovOk).setOnClickListener {
+            Hub.approve(this, item.id, if (editing) et.text.toString() else null)
+            removeOverlay()
+        }
         v.findViewById<Button>(R.id.ovNo).setOnClickListener { Hub.discard(this, item.id); removeOverlay() }
+        v.findViewById<Button>(R.id.ovEdit).setOnClickListener {
+            editing = true
+            tvReply.visibility = View.GONE
+            et.setText(item.reply)
+            et.visibility = View.VISIBLE
+            // Torna a janela focável para o teclado aparecer.
+            val p = v.layoutParams as WindowManager.LayoutParams
+            p.flags = p.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
+            p.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_PAN
+            wm.updateViewLayout(v, p)
+            et.requestFocus()
+        }
         val lp = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.WRAP_CONTENT,

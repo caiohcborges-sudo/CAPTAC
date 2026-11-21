@@ -8,12 +8,18 @@
     <TextView android:id="@+id/ovReply" android:layout_width="match_parent"
         android:layout_height="wrap_content" android:layout_marginTop="4dp"
         android:textColor="#FFFFFF" android:textSize="15sp" />
+    <EditText android:id="@+id/ovEditText" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:layout_marginTop="4dp"
+        android:visibility="gone" android:inputType="textMultiLine"
+        android:textColor="#FFFFFF" android:textSize="15sp" />
 
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
         android:layout_marginTop="8dp" android:orientation="horizontal">
         <Button android:id="@+id/ovOk" android:layout_width="0dp" android:layout_height="wrap_content"
-            android:layout_weight="1" android:backgroundTint="#00C875" android:text="APROVAR E ENVIAR" />
+            android:layout_weight="1.4" android:textSize="11sp" android:backgroundTint="#00C875" android:text="APROVAR E ENVIAR" />
+        <Button android:id="@+id/ovEdit" android:layout_width="0dp" android:layout_height="wrap_content"
+            android:layout_weight="1" android:textSize="11sp" android:backgroundTint="#30363D" android:text="EDITAR" />
         <Button android:id="@+id/ovNo" android:layout_width="0dp" android:layout_height="wrap_content"
-            android:layout_weight="1" android:backgroundTint="#E11D48" android:text="DESCARTAR" />
+            android:layout_weight="1" android:textSize="11sp" android:backgroundTint="#E11D48" android:text="DESCARTAR" />
     </LinearLayout>
 </LinearLayout>

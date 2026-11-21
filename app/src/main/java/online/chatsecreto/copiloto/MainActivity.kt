@@ -54,9 +54,40 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btOverlay).setOnClickListener {
             startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
         }
+        findViewById<Button>(R.id.btTest).setOnClickListener {
+            Prefs.save(this, etUrl.text.toString(), etToken.text.toString(), etPkg.text.toString())
+            Toast.makeText(this, "Testando…", Toast.LENGTH_SHORT).show()
+            Thread {
+                val r = Hub.ping(this)
+                runOnUiThread { Toast.makeText(this, r, Toast.LENGTH_LONG).show() }
+            }.start()
+        }
+        findViewById<Button>(R.id.btBattery).setOnClickListener {
+            startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName")))
+        }
+        applyDeepLink(intent)
         if (Build.VERSION.SDK_INT >= 33) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
         }
+    }
+
+    override fun onNewIntent(i: Intent) {
+        super.onNewIntent(i)
+        applyDeepLink(i)
+    }
+
+    /** copiloto://config?url=...&token=... (QR do painel do WordPress). */
+    private fun applyDeepLink(i: Intent?) {
+        val d = i?.data ?: return
+        if (d.scheme != "copiloto") return
+        val u = d.getQueryParameter("url")
+        val t = d.getQueryParameter("token")
+        if (u.isNullOrBlank() || t.isNullOrBlank()) return
+        Prefs.save(this, u, t, Prefs.pkg(this))
+        etUrl.setText(u)
+        etToken.setText(t)
+        etPkg.setText(Prefs.pkg(this))
+        Toast.makeText(this, "Configurado pelo QR ✅", Toast.LENGTH_LONG).show()
     }
 
     override fun onResume() {
