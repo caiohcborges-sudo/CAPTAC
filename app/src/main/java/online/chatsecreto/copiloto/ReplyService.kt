@@ -1,6 +1,9 @@
 package online.chatsecreto.copiloto
 
 import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.GestureDescription
+import android.graphics.Path
+import android.os.Build
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -58,6 +61,9 @@ class ReplyService : AccessibilityService() {
 
     private val h = Handler(Looper.getMainLooper())
     private var dumped = false
+    private var attemptsFor = -1L
+    private var tries = 0
+    private var lastClickAt = 0L
     private var listDumped = false
     private var lastBack = 0L
 
@@ -67,14 +73,14 @@ class ReplyService : AccessibilityService() {
                 process()
             } catch (_: Exception) {
             }
-            h.postDelayed(this, 1200)
+            h.postDelayed(this, 500)
         }
     }
 
     override fun onServiceConnected() {
         super.onServiceConnected()
         inst = this
-        h.postDelayed(tick, 1200)
+        h.postDelayed(tick, 500)
     }
 
     override fun onDestroy() {
@@ -83,7 +89,20 @@ class ReplyService : AccessibilityService() {
         super.onDestroy()
     }
 
-    override fun onAccessibilityEvent(e: AccessibilityEvent) {}
+    private var lastEvent = 0L
+
+    override fun onAccessibilityEvent(e: AccessibilityEvent) {
+        if (Hub.screen == null && !Scan.active) return
+        val now = System.currentTimeMillis()
+        if (now - lastEvent < 250) return
+        lastEvent = now
+        h.post {
+            try {
+                process()
+            } catch (_: Exception) {
+            }
+        }
+    }
     override fun onInterrupt() {}
 
     // ---------- núcleo ----------
@@ -122,7 +141,7 @@ class ReplyService : AccessibilityService() {
 
     private fun back() {
         val now = System.currentTimeMillis()
-        if (now - lastBack > 1500) {
+        if (now - lastBack > 900) {
             lastBack = now
             performGlobalAction(GLOBAL_ACTION_BACK)
         }
@@ -143,24 +162,94 @@ class ReplyService : AccessibilityService() {
             startFetch(op, message, root.packageName?.toString() ?: "")
             return
         }
-        if (field.text?.toString() != s.text) {
+        val now = System.currentTimeMillis()
+        if (attemptsFor != s.id) {
+            attemptsFor = s.id
+            tries = 0
+            lastClickAt = 0L
+        }
+        val cur = field.text?.toString() ?: ""
+        // 1) cola o texto
+        if (lastClickAt == 0L && cur != s.text) {
             val args = Bundle()
             args.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, s.text)
-            if (!field.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)) return
+            field.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
+            return
         }
+        // 2) depois de cada tentativa, confere se o campo esvaziou (= enviou)
+        if (lastClickAt > 0L && now - lastClickAt > 1000) {
+            if (cur != s.text) {
+                sent(s)
+                return
+            }
+            if (tries >= 4) {
+                Hub.screen = null
+                Hub.setStatus(this, s.id, "falhou (tela): não consegui tocar em enviar")
+                Hub.diag("❌ Não consegui enviar depois de 4 tentativas. Botões na tela: " + clickables(root))
+                Scan.opening = null
+                Scan.fetching = false
+                Scan.busy = false
+                attemptsFor = -1
+                return
+            }
+        }
+        // 3) tenta enviar (uma estratégia por tentativa)
+        if (lastClickAt == 0L || now - lastClickAt > 1000) {
+            tries++
+            lastClickAt = now
+            sendOnce(root, field, tries)
+        }
+    }
+
+    private fun sent(s: Hub.ScreenReply) {
+        Hub.screen = null
+        Hub.setStatus(this, s.id, "enviada (pela tela)")
+        Hub.diag("✅ resposta enviada pela tela")
+        attemptsFor = -1
+        Scan.opening = null
+        Scan.fetching = false
+        Scan.busy = false
+        h.postDelayed({ back() }, 500)
+    }
+
+    private fun tap(x: Float, y: Float) {
+        val path = Path()
+        path.moveTo(x, y)
+        val g = GestureDescription.Builder().addStroke(GestureDescription.StrokeDescription(path, 0, 70)).build()
+        dispatchGesture(g, null, null)
+    }
+
+    /** Tentativa 1: clicar no botão achado; 2: tocar no centro dele; 3: tocar à direita do campo; 4: tecla Enter. */
+    private fun sendOnce(root: AccessibilityNodeInfo, field: AccessibilityNodeInfo, n: Int) {
         val btn = findSend(root, field)
-        if (btn != null && btn.performAction(AccessibilityNodeInfo.ACTION_CLICK)) {
-            Hub.screen = null
-            Hub.setStatus(this, s.id, "enviada (pela tela)")
-            Hub.diag("✅ resposta enviada pela tela")
-            dumped = false
-            Scan.opening = null
-            Scan.fetching = false
-            Scan.busy = false
-            h.postDelayed({ back() }, 900)
-        } else if (!dumped) {
-            dumped = true
-            Hub.diag("Texto colocado, mas não achei o botão de enviar. Botões na tela: " + clickables(root))
+        val rb = android.graphics.Rect()
+        root.getBoundsInScreen(rb)
+        val fb = android.graphics.Rect()
+        field.getBoundsInScreen(fb)
+        when (n) {
+            1 -> {
+                Hub.diag("tentativa 1: clique no botão " + (if (btn != null) "achado" else "(não achei botão)"))
+                btn?.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+            }
+            2 -> {
+                val r = android.graphics.Rect()
+                if (btn != null) btn.getBoundsInScreen(r)
+                val x = if (btn != null) r.exactCenterX() else (fb.right + rb.right) / 2f
+                val y = if (btn != null) r.exactCenterY() else fb.exactCenterY()
+                Hub.diag("tentativa 2: toque na tela em (${x.toInt()}, ${y.toInt()})")
+                tap(x, y)
+            }
+            3 -> {
+                val x = (fb.right + rb.right) / 2f
+                Hub.diag("tentativa 3: toque à direita do campo em (${x.toInt()}, ${fb.centerY()})")
+                tap(x, fb.exactCenterY())
+            }
+            else -> {
+                Hub.diag("tentativa 4: tecla Enter")
+                if (Build.VERSION.SDK_INT >= 30) {
+                    field.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.id)
+                }
+            }
         }
     }
 
