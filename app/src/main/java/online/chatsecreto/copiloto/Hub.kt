@@ -71,6 +71,7 @@ object Hub {
         }
     }
     @Volatile var lastApi: String = "ainda não testada"
+    @Volatile var lastWhy: String = ""
 
     fun diag(s: String) {
         val f = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())
@@ -264,6 +265,7 @@ object Hub {
             val txt = conn.inputStream.bufferedReader().use { it.readText() }
             val j = JSONObject(txt)
             val r = j.optString("reply", "")
+            lastWhy = j.optString("why", "")
             if (j.optBoolean("skip", false) || r.isBlank()) null else Pair(r, j.optInt("delay_seconds", 8))
         } catch (_: Exception) {
             null

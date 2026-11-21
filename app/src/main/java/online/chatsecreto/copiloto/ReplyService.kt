@@ -201,7 +201,7 @@ class ReplyService : AccessibilityService() {
         Thread {
             val res = Hub.fetchFull(this, op.name, message, false, auto, op.conv)
             if (res == null) {
-                Hub.diag("${op.name} — sem sugestão (API pulou ou falhou: token, limite ou chave DeepSeek)")
+                Hub.diag("${op.name} — sem resposta: ${when (Hub.lastWhy) { "off" -> "captação DESLIGADA no painel do plugin"; "hour_limit" -> "limite por hora atingido"; "user_limit" -> "limite de respostas dessa pessoa"; "sequence_end" -> "sequência de mensagens terminou"; "system" -> "mensagem de sistema"; "" -> "token, chave ou conexão"; else -> Hub.lastWhy }}")
                 Scan.opening = null
                 Scan.fetching = false
                 Scan.busy = false

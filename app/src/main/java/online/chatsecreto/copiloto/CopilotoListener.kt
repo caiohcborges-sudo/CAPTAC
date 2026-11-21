@@ -114,7 +114,7 @@ class CopilotoListener : NotificationListenerService() {
         Thread {
             val res = Hub.fetchFull(this, title, text, false, auto, conv)
             if (res == null) {
-                Hub.diag("$tag — sem sugestão: API pulou ou falhou (token, limite ou chave DeepSeek)")
+                Hub.diag("$tag — sem resposta: ${when (Hub.lastWhy) { "off" -> "captação DESLIGADA no painel do plugin"; "hour_limit" -> "limite por hora atingido"; "user_limit" -> "limite de respostas dessa pessoa"; "sequence_end" -> "sequência de mensagens terminou"; "system" -> "mensagem de sistema"; "" -> "token, chave ou conexão"; else -> Hub.lastWhy }}")
                 return@Thread
             }
             Hub.diag(
