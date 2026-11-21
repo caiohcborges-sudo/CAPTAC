@@ -44,7 +44,10 @@ class MainActivity : AppCompatActivity() {
         etPkg.setText(Prefs.pkg(this))
         swAtivo.isChecked = Prefs.enabled(this)
 
-        swAtivo.setOnCheckedChangeListener { _, v -> Prefs.setEnabled(this, v) }
+        swAtivo.setOnCheckedChangeListener { _, v ->
+            Prefs.setEnabled(this, v)
+            refresh()
+        }
         val swAuto = findViewById<Switch>(R.id.swAuto)
         swAuto.isChecked = Prefs.auto(this)
         swAuto.setOnCheckedChangeListener { _, v ->
@@ -159,8 +162,18 @@ class MainActivity : AppCompatActivity() {
         Toast.makeText(this, "Configurado pelo QR ✅", Toast.LENGTH_LONG).show()
     }
 
+    // Atualiza o painel de saúde a cada 3 s enquanto a tela está aberta.
+    private val tick = object : Runnable {
+        override fun run() {
+            refresh()
+            tvHealth.postDelayed(this, 3000)
+        }
+    }
+
     override fun onResume() {
         super.onResume()
+        tvHealth.removeCallbacks(tick)
+        tvHealth.postDelayed(tick, 3000)
         if (!askedUpdate) {
             askedUpdate = true
             checkUpdate(false) // ao abrir o app, já pergunta se houver versão nova
@@ -170,6 +183,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onPause() {
+        tvHealth.removeCallbacks(tick)
         Hub.onChange = null
         super.onPause()
     }
