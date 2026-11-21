@@ -43,6 +43,9 @@
                     <Switch android:id="@+id/swAuto" android:layout_width="match_parent"
                         android:layout_height="wrap_content" android:layout_marginTop="6dp"
                         android:text="Modo AUTOMÁTICO" android:textColor="#00C875" />
+                    <Switch android:id="@+id/swAds" android:layout_width="match_parent"
+                        android:layout_height="wrap_content" android:layout_marginTop="6dp"
+                        android:text="Fechar anúncios sozinho (só enquanto atende)" android:textColor="#E6EDF3" />
                     <TextView android:id="@+id/tvAutoInfo" android:layout_width="match_parent"
                         android:layout_height="wrap_content" android:layout_marginBottom="8dp"
                         android:textColor="#8B949E" android:textSize="12sp"

@@ -24,6 +24,9 @@ object Prefs {
     fun auto(c: Context) = sp(c).getBoolean("auto", false)
     fun setAuto(c: Context, v: Boolean) = sp(c).edit().putBoolean("auto", v).apply()
 
+    fun closeAds(c: Context) = sp(c).getBoolean("closeAds", true)
+    fun setCloseAds(c: Context, v: Boolean) = sp(c).edit().putBoolean("closeAds", v).apply()
+
     fun setEnabled(c: Context, v: Boolean) = sp(c).edit().putBoolean("enabled", v).apply()
 
     fun loadHistory(c: Context): String = sp(c).getString("hist", "[]")!!

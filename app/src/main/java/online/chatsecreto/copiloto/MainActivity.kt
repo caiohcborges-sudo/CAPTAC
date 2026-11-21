@@ -50,6 +50,9 @@ class MainActivity : AppCompatActivity() {
             Prefs.setEnabled(this, v)
             refresh()
         }
+        val swAds = findViewById<Switch>(R.id.swAds)
+        swAds.isChecked = Prefs.closeAds(this)
+        swAds.setOnCheckedChangeListener { _, v -> Prefs.setCloseAds(this, v) }
         val swAuto = findViewById<Switch>(R.id.swAuto)
         swAuto.isChecked = Prefs.auto(this)
         swAuto.setOnCheckedChangeListener { _, v ->

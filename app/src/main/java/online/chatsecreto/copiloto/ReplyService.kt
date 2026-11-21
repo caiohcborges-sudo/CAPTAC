@@ -130,7 +130,10 @@ class ReplyService : AccessibilityService() {
         val cur = Hub.screen
         if (cur == null && !Scan.active) return
         val root = rootInActiveWindow ?: return
-        if (!isTarget(root.packageName?.toString())) return
+        val pkgName = root.packageName?.toString() ?: ""
+        // Anúncio por cima da conversa (do app alvo ou do Google): fecha só pelo botão "Fechar".
+        if ((isTarget(pkgName) || pkgName.startsWith("com.google.android")) && Prefs.closeAds(this) && closeAd(root)) return
+        if (!isTarget(pkgName)) return
         val field = findEditable(root)
         if (field != null) inChat(root, field, cur) else onList(root, cur)
     }
@@ -386,6 +389,43 @@ class ReplyService : AccessibilityService() {
         Scan.opening = Scan.Open(row.name, row.msg, conv, System.currentTimeMillis())
         Hub.diag("abrindo a conversa de ${row.name}")
         row.node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+    }
+
+
+    // ---------- anúncios ----------
+
+    private val closeRe = Regex("^\\s*(fechar|close|dismiss|pular|skip|×|✕|x)\\s*(an[uú]ncio|ad)?\\s*$", RegexOption.IGNORE_CASE)
+    private val adMarkRe = Regex("google play|an[uú]ncio|patrocinad|sponsored|instalar|install|\\bad\\b|abrir", RegexOption.IGNORE_CASE)
+    private var adSeenAt = 0L
+    private var adBackAt = 0L
+
+    /** true = há um anúncio na tela (tratado). Só toca em "Fechar"; nunca em Abrir/Instalar. */
+    private fun closeAd(root: AccessibilityNodeInfo): Boolean {
+        val btn = findClose(root) ?: return false
+        val leaves = mutableListOf<String>()
+        gather(root, leaves)
+        if (leaves.none { adMarkRe.containsMatchIn(it) }) return false // "Fechar" sem cara de anúncio: ignora
+        Hub.diag("anúncio detectado → tocando em Fechar")
+        var n: AccessibilityNodeInfo? = btn
+        var done = false
+        while (n != null && !done) {
+            if (n.isClickable) done = n.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+            n = n.parent
+        }
+        if (!done) {
+            val r = android.graphics.Rect()
+            btn.getBoundsInScreen(r)
+            tap(r.exactCenterX(), r.exactCenterY())
+        }
+        return true
+    }
+
+    private fun findClose(n: AccessibilityNodeInfo?): AccessibilityNodeInfo? {
+        if (n == null) return null
+        val label = (n.text?.toString() ?: n.contentDescription?.toString() ?: "")
+        if (label.isNotBlank() && closeRe.matches(label)) return n
+        for (i in 0 until n.childCount) findClose(n.getChild(i))?.let { return it }
+        return null
     }
 
     // ---------- utilidades de nós ----------
