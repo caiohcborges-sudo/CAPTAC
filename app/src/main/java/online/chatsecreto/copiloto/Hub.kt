@@ -27,6 +27,8 @@ object Hub {
     /** Diagnóstico: o que o app viu e por que ignorou (não persiste). */
     val diagLog = CopyOnWriteArrayList<String>()
     @Volatile var lastPkg: String? = null
+    @Volatile var lastAt: Long = 0L
+    @Volatile var lastApi: String = "ainda não testada"
 
     fun diag(s: String) {
         val f = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())
@@ -145,13 +147,16 @@ object Hub {
             conn.connectTimeout = 10000
             conn.readTimeout = 10000
             conn.setRequestProperty("X-Rando-Token", Prefs.token(c))
-            when (conn.responseCode) {
+            val r = when (conn.responseCode) {
                 200 -> "Conectado ✅"
                 401, 403 -> "Token incorreto ❌"
                 404 -> "Plugin não encontrado (URL errada ou plugin desativado) ❌"
                 else -> "Erro ${conn.responseCode} ❌"
             }
+            lastApi = r
+            r
         } catch (e: Exception) {
+            lastApi = "Sem conexão ❌"
             "Sem conexão: ${e.javaClass.simpleName} ❌"
         }
     }

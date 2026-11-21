@@ -56,6 +56,7 @@ class CopilotoListener : NotificationListenerService() {
         val pkg = sbn.packageName.lowercase()
         if (pkg == packageName) return
         Hub.lastPkg = sbn.packageName
+        Hub.lastAt = System.currentTimeMillis()
         val ex = n.extras
         val title = ex.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
         // Texto: normal, expandido ou a última mensagem de um estilo de conversa.
@@ -244,6 +245,15 @@ class CopilotoListener : NotificationListenerService() {
             .setAutoCancel(true)
             .build()
         nm.notify(notifId(item.id), nt)
+    }
+
+    /** O Android às vezes derruba o serviço: pede para reconectar sozinho. */
+    override fun onListenerDisconnected() {
+        super.onListenerDisconnected()
+        try {
+            requestRebind(ComponentName(this, CopilotoListener::class.java))
+        } catch (_: Exception) {
+        }
     }
 
     override fun onDestroy() {

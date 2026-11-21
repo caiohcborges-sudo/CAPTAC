@@ -69,7 +69,22 @@ class MainActivity : AppCompatActivity() {
                 runOnUiThread { Toast.makeText(this, r, Toast.LENGTH_LONG).show() }
             }.start()
         }
-        findViewById<TextView>(R.id.tvVer).text = "Versão: build ${Updater.currentBuild(this)}"
+        findViewById<TextView>(R.id.tvVer).text = "Instalada: build ${Updater.currentBuild(this)}"
+        findViewById<Button>(R.id.btSim).setOnClickListener {
+            Toast.makeText(this, "Simulando…", Toast.LENGTH_SHORT).show()
+            Thread {
+                val res = Hub.fetchFull(this, "Teste (app)", "oi, tudo bem?", false, Prefs.auto(this))
+                runOnUiThread {
+                    if (res == null) {
+                        Hub.diag("SIMULAÇÃO — sem resposta da API (token, limite ou chave DeepSeek). Use TESTAR CONEXÃO API.")
+                    } else {
+                        val now = System.currentTimeMillis()
+                        Hub.add(this, Hub.Item(now, "Teste (app)", "oi, tudo bem?", res.first, now, "teste"), null)
+                        Hub.diag("SIMULAÇÃO ✅ a IA respondeu: ${res.first}")
+                    }
+                }
+            }.start()
+        }
         findViewById<Button>(R.id.btUpdate).setOnClickListener { checkUpdate(true) }
         findViewById<Button>(R.id.btUsePkg).setOnClickListener {
             val p = Hub.lastPkg
@@ -97,6 +112,10 @@ class MainActivity : AppCompatActivity() {
         Thread {
             val info = Updater.check(this)
             runOnUiThread {
+                val cur = Updater.currentBuild(this)
+                findViewById<TextView>(R.id.tvVer).text = if (info == null)
+                    "Instalada: build $cur · é a mais nova ✅ (ou sem internet)"
+                else "Instalada: build $cur · DISPONÍVEL: build ${info.build} ⬆"
                 if (info == null) {
                     if (manual) Toast.makeText(this, "Você já está na versão mais nova.", Toast.LENGTH_LONG).show()
                     return@runOnUiThread
@@ -158,6 +177,14 @@ class MainActivity : AppCompatActivity() {
         tvPerm.text = (if (n) "✅" else "❌") + " Acesso às notificações\n" +
             (if (o) "✅" else "❌") + " Sobrepor a outros apps (sem isso, uso a notificação)"
         if (Hub.diagLog.isNotEmpty()) findViewById<TextView>(R.id.tvDiag).text = Hub.diagLog.joinToString("\n")
+        val ago = if (Hub.lastAt == 0L) "nenhuma ainda" else "há ${(System.currentTimeMillis() - Hub.lastAt) / 1000}s"
+        findViewById<TextView>(R.id.tvHealth).text =
+            (if (n) "✅" else "❌") + " Acesso às notificações\n" +
+            (if (Prefs.enabled(this)) "✅" else "❌") + " Receber sugestões ligado\n" +
+            (if (Prefs.token(this).isNotBlank()) "✅" else "❌") + " Token preenchido\n" +
+            "API: ${Hub.lastApi}\n" +
+            "Última notificação vista: $ago\n" +
+            "Modo: " + (if (Prefs.auto(this)) "AUTOMÁTICO" else "semi-automático")
         val f = SimpleDateFormat("HH:mm", Locale.getDefault())
         tvHist.text = if (Hub.items.isEmpty()) "—" else Hub.items.take(15).joinToString("\n\n") {
             "${f.format(Date(it.time))} • ${it.sender}: ${it.message}\n→ ${it.reply}  [${it.status}]"
