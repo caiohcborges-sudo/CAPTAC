@@ -23,6 +23,7 @@ object Scan {
     class Open(val name: String, val msg: String, val conv: String, val at: Long)
     @Volatile var opening: Open? = null
     @Volatile var fetching = false
+    @Volatile var currentKey: String? = null
     @Volatile var lastProgress = 0L
     @Volatile var restarts = 0
     @Volatile var adsClosed = 0
@@ -501,7 +502,6 @@ class ReplyService : AccessibilityService() {
         if (s != null) {
             // Há uma resposta pronta: abre a conversa certa.
             val it = Hub.items.firstOrNull { x -> x.id == s.id } ?: return
-            if (!s.fromList) return
             val row = rows.firstOrNull { r -> r.name == it.sender && (r.msg == it.message || it.message.startsWith(r.msg.removeSuffix("…"))) }
                 ?: rows.firstOrNull { r -> r.name == it.sender }
             if (row != null) row.node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
@@ -509,7 +509,9 @@ class ReplyService : AccessibilityService() {
         }
 
         val op = Scan.opening
-        if (op != null && System.currentTimeMillis() - op.at > 15000 && !Scan.fetching) {
+        if (op != null && System.currentTimeMillis() - op.at > 5000 && !Scan.fetching) {
+            Hub.diag("a conversa de ${op.name} não abriu (anúncio no meio?) → tentando de novo")
+            Scan.currentKey?.let { Scan.seen.remove(it) }
             Scan.opening = null
             Scan.busy = false
         }
@@ -525,6 +527,7 @@ class ReplyService : AccessibilityService() {
             return
         }
         Scan.seen.add(row.key)
+        Scan.currentKey = row.key
         Scan.busy = true
         Scan.fetching = false
         val conv = if (isGeneric(row.name)) row.name + "#" + row.msg.take(20) else row.name
@@ -613,6 +616,7 @@ class ReplyService : AccessibilityService() {
 
     /** HOME e volta ao app (como você faz com a mão). hard = abre do zero, limpando as telas. */
     private fun exitReenter(hard: Boolean) {
+        Scan.progress()
         performGlobalAction(GLOBAL_ACTION_HOME)
         h.postDelayed({ if (hard) Hub.relaunchFresh(this) else Hub.launchTarget(this) }, 700)
     }
