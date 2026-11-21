@@ -28,6 +28,37 @@ object Hub {
     val diagLog = CopyOnWriteArrayList<String>()
     @Volatile var lastPkg: String? = null
     @Volatile var lastAt: Long = 0L
+
+    /** Resposta a colar na tela do chat (só para responder mensagem recebida; vale 30 s). */
+    class ScreenReply(val id: Long, val text: String, val pkg: String, val until: Long)
+    @Volatile var screen: ScreenReply? = null
+    private val contentIntents = ConcurrentHashMap<Long, PendingIntent>()
+    private val pkgs = ConcurrentHashMap<Long, String>()
+
+    fun setStatus(c: Context, id: Long, status: String) {
+        items.firstOrNull { x -> x.id == id }?.status = status
+        persist(c)
+        onChange?.invoke()
+    }
+
+    /** Abre o chat da mensagem e deixa o serviço de acessibilidade colar a resposta e enviar. */
+    private fun screenSend(c: Context, id: Long): Boolean {
+        val it = items.firstOrNull { x -> x.id == id } ?: return false
+        val ci = contentIntents[id] ?: return false
+        val pkg = pkgs[id] ?: return false
+        if (!ReplyService.isEnabled(c)) return false
+        return try {
+            screen = ScreenReply(id, it.reply, pkg, System.currentTimeMillis() + 30000)
+            ci.send()
+            it.status = "abrindo o chat…"
+            persist(c)
+            onChange?.invoke()
+            true
+        } catch (_: Exception) {
+            screen = null
+            false
+        }
+    }
     @Volatile var lastApi: String = "ainda não testada"
 
     fun diag(s: String) {
@@ -60,13 +91,19 @@ object Hub {
         Prefs.saveHistory(c, a.toString())
     }
 
-    fun add(c: Context, item: Item, p: Pending?) {
+    fun add(c: Context, item: Item, p: Pending?, content: PendingIntent? = null, pkg: String? = null) {
         items.add(0, item)
         while (items.size > 30) {
             val old = items.removeAt(items.size - 1)
             pending.remove(old.id)
+            contentIntents.remove(old.id)
+            pkgs.remove(old.id)
         }
         if (p != null) pending[item.id] = p
+        if (content != null && pkg != null) {
+            contentIntents[item.id] = content
+            pkgs[item.id] = pkg
+        }
         persist(c)
         onChange?.invoke()
     }
@@ -75,7 +112,7 @@ object Hub {
     /** Envio do modo automático: tenta o RemoteInput; devolve false se não houver (cai na fila manual). */
     fun autoSend(c: Context, id: Long): Boolean {
         val it = items.firstOrNull { x -> x.id == id } ?: return false
-        val p = pending[id] ?: return false
+        val p = pending[id] ?: return screenSend(c, id)
         return try {
             val intent = Intent()
             val b = Bundle()
@@ -112,6 +149,9 @@ object Hub {
         }
         if (sent) {
             it.status = "enviada"
+        } else if (p == null && screenSend(c, id)) {
+            // chat aberto; o serviço de acessibilidade cola e envia
+            return
         } else {
             val cm = c.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             cm.setPrimaryClip(ClipData.newPlainText("resposta", it.reply))

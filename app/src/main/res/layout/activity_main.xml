@@ -59,6 +59,9 @@
         <TextView android:id="@+id/tvPerm" android:layout_width="match_parent"
             android:layout_height="wrap_content" android:layout_marginTop="12dp"
             android:textColor="#E6EDF3" />
+        <Button android:id="@+id/btAcc" android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Ativar envio pela tela (acessibilidade) — só para responder" />
         <Button android:id="@+id/btNotif" android:layout_width="match_parent"
             android:layout_height="wrap_content" android:text="Conceder acesso às notificações" />
         <Button android:id="@+id/btOverlay" android:layout_width="match_parent"

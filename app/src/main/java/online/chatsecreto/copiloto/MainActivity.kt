@@ -55,6 +55,9 @@ class MainActivity : AppCompatActivity() {
             Prefs.save(this, etUrl.text.toString(), etToken.text.toString(), etPkg.text.toString())
             Toast.makeText(this, "Salvo", Toast.LENGTH_SHORT).show()
         }
+        findViewById<Button>(R.id.btAcc).setOnClickListener {
+            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+        }
         findViewById<Button>(R.id.btNotif).setOnClickListener {
             startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
         }
@@ -182,6 +185,7 @@ class MainActivity : AppCompatActivity() {
             (if (n) "✅" else "❌") + " Acesso às notificações\n" +
             (if (Prefs.enabled(this)) "✅" else "❌") + " Receber sugestões ligado\n" +
             (if (Prefs.token(this).isNotBlank()) "✅" else "❌") + " Token preenchido\n" +
+            (if (ReplyService.isEnabled(this)) "✅" else "➖") + " Envio pela tela (para quando não há resposta rápida)\n" +
             "API: ${Hub.lastApi}\n" +
             "Última notificação vista: $ago\n" +
             "Modo: " + (if (Prefs.auto(this)) "AUTOMÁTICO" else "semi-automático")

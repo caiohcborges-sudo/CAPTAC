@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="acc_desc">Usado somente para responder, dentro do app alvo, a uma mensagem que você recebeu: cola a resposta aprovada no campo de texto e toca em enviar. Não inicia conversas nem pula chats.</string>
+</resources>

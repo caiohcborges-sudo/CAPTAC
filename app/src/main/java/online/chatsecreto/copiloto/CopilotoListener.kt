@@ -102,8 +102,8 @@ class CopilotoListener : NotificationListenerService() {
                     " · modo: " + (if (auto) "automático" else "semi")
             )
             val item = Hub.Item(now, title, text, res.first, now, "pendente")
-            Hub.add(this, item, pend)
-            if (auto && hasReplyAction) {
+            Hub.add(this, item, pend, n.contentIntent, sbn.packageName)
+            if (auto) {
                 // Modo automático: espera o delay (tempo de "digitação") e envia sozinho.
                 try {
                     Thread.sleep(res.second.coerceIn(0, 30) * 1000L)
