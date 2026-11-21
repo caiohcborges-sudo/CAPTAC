@@ -95,7 +95,11 @@ class CopilotoListener : NotificationListenerService() {
                 Hub.diag("$tag — sem sugestão: API pulou ou falhou (token, limite ou chave DeepSeek)")
                 return@Thread
             }
-            Hub.diag("$tag — ✅ sugestão gerada")
+            Hub.diag(
+                "$tag — ✅ sugestão gerada · resposta rápida na notificação: " +
+                    (if (hasReplyAction) "SIM" else "NÃO (não dá para enviar sozinho; use o card)") +
+                    " · modo: " + (if (auto) "automático" else "semi")
+            )
             val item = Hub.Item(now, title, text, res.first, now, "pendente")
             Hub.add(this, item, pend)
             if (auto && hasReplyAction) {
