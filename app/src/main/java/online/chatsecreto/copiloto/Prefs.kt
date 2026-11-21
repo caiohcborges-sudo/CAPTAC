@@ -27,6 +27,10 @@ object Prefs {
     fun closeAds(c: Context) = sp(c).getBoolean("closeAds", true)
     fun setCloseAds(c: Context, v: Boolean) = sp(c).edit().putBoolean("closeAds", v).apply()
 
+    /** Teto de espera (s) antes de enviar, no app: vale o menor entre o do plugin e este. */
+    fun maxDelay(c: Context) = sp(c).getInt("maxDelay", 3)
+    fun setMaxDelay(c: Context, v: Int) = sp(c).edit().putInt("maxDelay", v.coerceIn(0, 30)).apply()
+
     fun setEnabled(c: Context, v: Boolean) = sp(c).edit().putBoolean("enabled", v).apply()
 
     fun loadHistory(c: Context): String = sp(c).getString("hist", "[]")!!

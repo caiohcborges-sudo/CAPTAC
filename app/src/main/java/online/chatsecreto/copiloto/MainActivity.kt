@@ -50,6 +50,15 @@ class MainActivity : AppCompatActivity() {
             Prefs.setEnabled(this, v)
             refresh()
         }
+        val etMax = findViewById<EditText>(R.id.etMaxDelay)
+        etMax.setText(Prefs.maxDelay(this).toString())
+        etMax.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, st: Int, c: Int, a: Int) {}
+            override fun onTextChanged(s: CharSequence?, st: Int, b: Int, c: Int) {}
+            override fun afterTextChanged(s: android.text.Editable?) {
+                s?.toString()?.toIntOrNull()?.let { Prefs.setMaxDelay(this@MainActivity, it) }
+            }
+        })
         val swAds = findViewById<Switch>(R.id.swAds)
         swAds.isChecked = Prefs.closeAds(this)
         swAds.setOnCheckedChangeListener { _, v -> Prefs.setCloseAds(this, v) }

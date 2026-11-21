@@ -84,6 +84,7 @@ object Hub {
     }
     @Volatile var lastApi: String = "ainda não testada"
     @Volatile var lastWhy: String = ""
+    @Volatile var lastWhyAt: Long = 0L
 
     fun diag(s: String) {
         val f = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())
@@ -278,6 +279,7 @@ object Hub {
             val j = JSONObject(txt)
             val r = j.optString("reply", "")
             lastWhy = j.optString("why", "")
+            if (lastWhy.isNotEmpty()) lastWhyAt = System.currentTimeMillis()
             if (j.optBoolean("skip", false) || r.isBlank()) null else Pair(r, j.optInt("delay_seconds", 8))
         } catch (_: Exception) {
             null

@@ -29,12 +29,18 @@ object Scan {
     @Volatile var tRow = 0L
     @Volatile var tChat = 0L
     @Volatile var tApi = 0L
+    @Volatile var lastEnd = 0L
     fun progress() {
         lastProgress = System.currentTimeMillis()
     }
+
+    fun finish() {
+        active = false
+        lastEnd = System.currentTimeMillis()
+    }
     val seen: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
-    fun start(c: Context, ci: PendingIntent?) {
+    fun start(c: Context, ci: PendingIntent?, launch: Boolean = true) {
         seen.clear()
         busy = false
         opening = null
@@ -44,6 +50,7 @@ object Scan {
         progress()
         until = System.currentTimeMillis() + 5 * 60000L
         Hub.diag("varredura de não lidas iniciada")
+        if (!launch) return
         try {
             if (ci != null) ci.send() else Hub.launchTarget(c)
         } catch (_: Exception) {
@@ -102,8 +109,14 @@ class ReplyService : AccessibilityService() {
 
     private var lastEvent = 0L
 
+    @Volatile private var winClass = ""
+
     override fun onAccessibilityEvent(e: AccessibilityEvent) {
-        if (Hub.screen == null && !Scan.active) return
+        if (e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            winClass = e.className?.toString() ?: ""
+        }
+        val adOn = Prefs.closeAds(this) && Prefs.enabled(this)
+        if (Hub.screen == null && !Scan.active && !adOn) return
         val now = System.currentTimeMillis()
         if (now - lastEvent < 250) return
         lastEvent = now
@@ -134,14 +147,15 @@ class ReplyService : AccessibilityService() {
             Scan.fetching = false
         }
         if (Scan.active && now > Scan.until) {
-            Scan.active = false
+            Scan.finish()
             Scan.busy = false
             Hub.diag("varredura: tempo esgotado")
         }
         val cur = Hub.screen
         val working = cur != null || Scan.active
         val adOn = Prefs.closeAds(this) && Prefs.enabled(this)
-        if (!working && !adOn) return
+        val autoOn = Prefs.auto(this) && Prefs.enabled(this)
+        if (!working && !adOn && !autoOn) return
         // Vigia de tempo: atendendo e sem avanço há 45 s -> fecha e reabre o app.
         if (working && Scan.lastProgress > 0 && now - Scan.lastProgress > 45000) {
             recover()
@@ -154,7 +168,21 @@ class ReplyService : AccessibilityService() {
             Scan.progress()
             return
         }
-        if (!working) return
+        if (!working) {
+            // Automático: começa sozinho assim que a lista do app mostra conversas não lidas.
+            if (autoOn && isTarget(pkgName) && now - Scan.lastEnd > 20000 && findEditable(root) == null &&
+                !((Hub.lastWhy == "off" || Hub.lastWhy == "hour_limit") && now - Hub.lastWhyAt < 60000)
+            ) {
+                root.getBoundsInScreen(listBounds)
+                val rows = mutableListOf<Row>()
+                collectRows(root, rows)
+                if (rows.any { it.unread }) {
+                    Hub.diag("lista com não lidas à vista → atendendo sozinho")
+                    Scan.start(this, null, false)
+                }
+            }
+            return
+        }
         if (!isTarget(pkgName)) return
         val field = findEditable(root)
         if (field != null) inChat(root, field, cur) else onList(root, cur)
@@ -170,7 +198,7 @@ class ReplyService : AccessibilityService() {
         Scan.busy = false
         attemptsFor = -1
         if (Scan.restarts >= 3) {
-            Scan.active = false
+            Scan.finish()
             Hub.diag("⏱ sem progresso e já reiniciei 3 vezes: parei. Confira o app.")
             return
         }
@@ -369,7 +397,7 @@ class ReplyService : AccessibilityService() {
             Hub.diag("${op.name} — ✅ sugestão gerada · modo " + (if (auto) "automático" else "semi"))
             if (auto) {
                 try {
-                    Thread.sleep(res.second.coerceIn(0, 30) * 1000L)
+                    Thread.sleep(minOf(res.second.coerceIn(0, 30), Prefs.maxDelay(this)) * 1000L)
                 } catch (_: InterruptedException) {
                 }
                 Scan.progress()
@@ -461,7 +489,7 @@ class ReplyService : AccessibilityService() {
         if (Scan.busy) return
         val row = rows.firstOrNull { it.unread && it.key !in Scan.seen }
         if (row == null) {
-            Scan.active = false
+            Scan.finish()
             Hub.diag("varredura concluída: ${rows.size} conversas vistas, sem não lidas novas")
             if (rows.isEmpty() && !listDumped) {
                 listDumped = true
@@ -483,39 +511,56 @@ class ReplyService : AccessibilityService() {
 
     // ---------- anúncios ----------
 
-    private val closeRe = Regex("^\\s*(fechar|close|dismiss|pular|skip|×|✕|✖|x)\\s*(an[uú]ncio|ad)?\\s*$", RegexOption.IGNORE_CASE)
-    // Anúncio = selo (Google Play / Anúncio / Patrocinado / Ad) E botão de ação (Abrir / Instalar...), com o texto inteiro do elemento.
+    private val closeRe = Regex("^\\s*(fechar|close|dismiss|dispensar|pular|skip|ignorar|×|✕|✖|⨯|x)\\s*(an[uú]ncio|ad)?\\s*$", RegexOption.IGNORE_CASE)
+    private val closeIdRe = Regex("(^|[:/_])(close|dismiss|skip|cross|btn_x)([_a-z0-9]*)$", RegexOption.IGNORE_CASE)
+
+    // Tela de anúncio pelo NOME da janela (funciona mesmo quando o conteúdo não é legível): AdMob e outras redes.
+    private val adWindowRe = Regex("(\\.ads\\.|AdActivity|InterstitialAd|RewardedAd|applovin|unity3d\\.ads|vungle|chartboost|ironsource|inmobi|mbridge|mintegral|pangle|adcolony|audiencenetwork|fyber)", RegexOption.IGNORE_CASE)
+
+    // Anúncio pelo conteúdo = selo (Google Play / Anúncio / Patrocinado / Ad) E botão de ação (Abrir / Instalar...), com o texto inteiro do elemento.
     private val adBadgeRe = Regex("^(google play|an[uú]ncio|patrocinad|sponsored|ad\\b)", RegexOption.IGNORE_CASE)
     private val adActionRe = Regex("^(abrir|instalar|install|open|baixar|download|jogar|visitar|visitar site|saiba mais|learn more)$", RegexOption.IGNORE_CASE)
     private val badBtnRe = Regex("abrir|instalar|install|open|saiba|learn|baixar|download|jogar|visitar|play", RegexOption.IGNORE_CASE)
     private var adSeenAt = 0L
     private var adBackAt = 0L
+    private var adBacks = 0
     private var lastAdClick = 0L
+    private var lastRelaunch = 0L
 
     /** A tela é do próprio RandoChat (lista ou chat)? Então "Abrir" é só o banner de rodapé, não um anúncio em tela cheia. */
     private fun isAppScreen(leaves: List<String>) =
         leaves.any { it.equals("Não lidas", true) || it.equals("Todas", true) || it.startsWith("Digite aqui", true) }
 
     /**
-     * true = anúncio em tela cheia na tela (tratado). Só procura o botão de fechar:
-     * 1) rótulo Fechar/Close/×; 2) ícone × sem rótulo no canto de cima; 3) sem botão: tecla Voltar após 3 s.
+     * true = anúncio em tela cheia na tela (tratado). Estratégias, em ordem, repetidas a cada 0,5 s
+     * (o botão costuma aparecer só no fim da contagem):
+     * 1) botão com texto Fechar/Close/×;  2) botão pelo identificador interno (close/dismiss/skip);
+     * 3) ícone × sem texto no canto de cima;  4) tecla Voltar aos 4 s e aos 8 s;
+     * 5) aos 12 s: abre o app do zero (derruba o anúncio).
      * Nunca toca em Abrir/Instalar nem no corpo do anúncio.
      */
     private fun closeAd(root: AccessibilityNodeInfo): Boolean {
-        val leaves = mutableListOf<String>()
-        gather(root, leaves)
-        val isAd = leaves.any { adBadgeRe.containsMatchIn(it.trim()) } && leaves.any { adActionRe.matches(it.trim()) }
-        if (!isAd || isAppScreen(leaves) || findEditable(root) != null) {
+        val byClass = adWindowRe.containsMatchIn(winClass)
+        var isAd = byClass
+        if (!isAd) {
+            val leaves = mutableListOf<String>()
+            gather(root, leaves)
+            isAd = leaves.any { adBadgeRe.containsMatchIn(it.trim()) } && leaves.any { adActionRe.matches(it.trim()) } &&
+                !isAppScreen(leaves) && findEditable(root) == null
+        }
+        if (!isAd) {
             adSeenAt = 0L
+            adBacks = 0
             return false
         }
         val now = System.currentTimeMillis()
         if (adSeenAt == 0L) {
             adSeenAt = now
-            Hub.diag("anúncio detectado na tela")
+            adBacks = 0
+            Hub.diag("anúncio detectado (${if (byClass) "pela tela: " + winClass.substringAfterLast('.') else "pelo conteúdo"}) — esperando o botão de fechar")
         }
         var target = findClose(root)
-        var how = "rótulo"
+        var how = "texto/identificador"
         if (target == null) {
             target = findCornerClose(root)
             how = "ícone no canto"
@@ -524,14 +569,22 @@ class ReplyService : AccessibilityService() {
             if (now - lastAdClick > 1200) {
                 lastAdClick = now
                 Scan.adsClosed++
-                Hub.diag("→ fechando o anúncio ($how) · anúncios fechados: ${Scan.adsClosed}")
+                Hub.diag("→ fechando o anúncio ($how) · fechados: ${Scan.adsClosed}")
                 clickUp(target)
             }
             return true
         }
-        if (now - adSeenAt > 3000 && now - adBackAt > 3000) {
+        val el = now - adSeenAt
+        if (el > 12000 && now - lastRelaunch > 20000) {
+            lastRelaunch = now
+            adSeenAt = 0L
+            Hub.diag("anúncio há ${el / 1000}s sem botão de fechar → reabrindo o app do zero")
+            performGlobalAction(GLOBAL_ACTION_HOME)
+            h.postDelayed({ Hub.relaunchFresh(this) }, 800)
+        } else if (el > 4000 && adBacks < 2 && now - adBackAt > 4000) {
             adBackAt = now
-            Hub.diag("anúncio sem botão de fechar visível → tecla Voltar")
+            adBacks++
+            Hub.diag("anúncio sem botão de fechar há ${el / 1000}s → tecla Voltar ($adBacks/2)")
             performGlobalAction(GLOBAL_ACTION_BACK)
         }
         return true
@@ -556,6 +609,8 @@ class ReplyService : AccessibilityService() {
         if (n == null) return null
         val label = (n.text?.toString() ?: n.contentDescription?.toString() ?: "")
         if (label.isNotBlank() && closeRe.matches(label)) return n
+        val vid = n.viewIdResourceName ?: ""
+        if (vid.isNotEmpty() && closeIdRe.containsMatchIn(vid) && !badBtnRe.containsMatchIn(label)) return n
         for (i in 0 until n.childCount) findClose(n.getChild(i))?.let { return it }
         return null
     }

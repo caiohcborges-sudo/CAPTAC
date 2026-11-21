@@ -127,7 +127,7 @@ class CopilotoListener : NotificationListenerService() {
             if (auto) {
                 // Modo automático: espera o delay (tempo de "digitação") e envia sozinho.
                 try {
-                    Thread.sleep(res.second.coerceIn(0, 30) * 1000L)
+                    Thread.sleep(minOf(res.second.coerceIn(0, 30), Prefs.maxDelay(this)) * 1000L)
                 } catch (_: InterruptedException) {
                 }
                 if (Hub.autoSend(this, item.id)) return@Thread
